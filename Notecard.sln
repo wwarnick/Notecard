@@ -5,7 +5,7 @@ VisualStudioVersion = 14.0.25123.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NotecardLib", "NotecardLib\NotecardLib.csproj", "{AC70734E-8E37-4CC2-A682-22D6096A2255}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NotecardFront", "NotecardFront\NotecardFront.csproj", "{84B40838-9AEB-4533-94F4-623CAD8D8F03}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NotecardFront", "NotecardFront\NotecardFront.csproj", "{F0806C74-D2A2-4ADD-90B6-6D85E77F98C2}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -17,10 +17,10 @@ Global
 		{AC70734E-8E37-4CC2-A682-22D6096A2255}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{AC70734E-8E37-4CC2-A682-22D6096A2255}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{AC70734E-8E37-4CC2-A682-22D6096A2255}.Release|Any CPU.Build.0 = Release|Any CPU
-		{84B40838-9AEB-4533-94F4-623CAD8D8F03}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{84B40838-9AEB-4533-94F4-623CAD8D8F03}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{84B40838-9AEB-4533-94F4-623CAD8D8F03}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{84B40838-9AEB-4533-94F4-623CAD8D8F03}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F0806C74-D2A2-4ADD-90B6-6D85E77F98C2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F0806C74-D2A2-4ADD-90B6-6D85E77F98C2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F0806C74-D2A2-4ADD-90B6-6D85E77F98C2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F0806C74-D2A2-4ADD-90B6-6D85E77F98C2}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace NotecardLib
 {
-	public enum CardTypeChange { DeleteCardType, NameChange, InheritChange, FieldOrderChange, FieldRemove, FieldAdd, FieldNameChange, FieldTypeChange, ListFieldOrderChange, ListFieldRemove, ListFieldNameChange, ListFieldTypeChange }
+	public enum CardTypeChange { CardTypeNameChange, CardTypeParentChange, CardTypeRemove, CardTypeFieldAdd, CardTypeFieldNameChange, CardTypeFieldTypeChange, CardTypeFieldOrderChange, CardTypeFieldRemove }
 
 	public class CardTypeChg
 	{
@@ -16,8 +16,21 @@ namespace NotecardLib
 		public CardTypeChange ChgType { get; set; }
 
 		/// <summary>Parameters relevant to the change.</summary>
-		public object Parameters { get; set; }
+		public object[] Parameters { get; set; }
 
 		#endregion Members
+
+		#region Constructors
+
+		/// <summary>Initializes a new instance of the CardTypeChg class.</summary>
+		/// <param name="chgType">The type of change to make.</param>
+		/// <param name="parameters">Parameters relevant to the change.</param>
+		public CardTypeChg(CardTypeChange chgType, params object[] parameters)
+		{
+			this.ChgType = chgType;
+			this.Parameters = parameters;
+		}
+
+		#endregion Constructors
 	}
 }

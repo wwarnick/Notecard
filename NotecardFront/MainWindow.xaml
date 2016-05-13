@@ -1,0 +1,152 @@
+﻿<Window x:Class="NotecardFront.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:NotecardFront"
+        mc:Ignorable="d"
+        Title="MainWindow" Height="350" Width="525">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="15"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="5"/>
+            <RowDefinition Height="20"/>
+            <RowDefinition Height="15"/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="15"/>
+            <ColumnDefinition Width="100"/>
+            <ColumnDefinition Width="15"/>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="15"/>
+        </Grid.ColumnDefinitions>
+
+        <Grid Grid.Column="1" Grid.Row="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <Label Name="lblCardTypes" FontSize="10" Padding="0" HorizontalAlignment="Center" VerticalAlignment="Bottom">Card Types</Label>
+            <ListBox Name="lstCardType" Grid.Row="1" SelectedValuePath="Value" DisplayMemberPath="Text" SelectionChanged="lstCardType_SelectionChanged"/>
+        </Grid>
+        <Grid Grid.Row="3" Grid.Column="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="47"/>
+                <ColumnDefinition Width="6"/>
+                <ColumnDefinition Width="47"/>
+            </Grid.ColumnDefinitions>
+
+            <Button Name="btnRemCardType" Grid.Column="0" Padding="0" FontSize="10" Click="btnRemCardType_Click">Remove</Button>
+            <Button Name="btnAddCardType" Grid.Column="2" Padding="0" FontSize="10" Click="btnAddCardType_Click">Add</Button>
+        </Grid>
+        <Grid Grid.Column="3" Grid.Row="1" Grid.RowSpan="3">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="100"/>
+                <ColumnDefinition Width="5"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="20"/>
+                <RowDefinition Height="5"/>
+                <RowDefinition Height="20"/>
+                <RowDefinition Height="5"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="5"/>
+                <RowDefinition Height="20"/>
+            </Grid.RowDefinitions>
+
+            <Label Name="lblCardTypeName" FontSize="10" Padding="0" Content="Name:" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+            <TextBox Name="txtCardTypeName" FontSize="10" Padding="0" Grid.Column="2" LostFocus="txtCardTypeName_LostFocus"/>
+            <Label Name="lblCardTypeParent" FontSize="10" Padding="0" Content="Parent:" HorizontalAlignment="Right" VerticalAlignment="Center" Grid.Row="2"/>
+            <ComboBox Name="cmbCardTypeParent" Grid.Row="2" Grid.Column="2" SelectedValuePath="Value" DisplayMemberPath="Text"/>
+            <Grid Grid.Row="4">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <Label Name="lblCardTypeFields" FontSize="10" Padding="0" HorizontalAlignment="Center" VerticalAlignment="Bottom">Fields</Label>
+                <ListBox Name="lstCardTypeField" Grid.Row="1" SelectedValuePath="Value" DisplayMemberPath="Text" SelectionChanged="lstCardTypeField_SelectionChanged"/>
+            </Grid>
+            <Grid Grid.Row="4" Grid.Column="1" Grid.RowSpan="3" Grid.ColumnSpan="2">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="15"/>
+                    <ColumnDefinition Width="100"/>
+                    <ColumnDefinition Width="5"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="20"/>
+                    <RowDefinition Height="5"/>
+                    <RowDefinition Height="20"/>
+                    <RowDefinition Height="5"/>
+                    <RowDefinition Height="20"/>
+                    <RowDefinition Height="5"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="5"/>
+                    <RowDefinition Height="20"/>
+                </Grid.RowDefinitions>
+
+                <Label Name="lblCardTypeFieldName" HorizontalAlignment="Right" FontSize="10" VerticalAlignment="Center" Padding="0" Grid.Column="1">Name:</Label>
+                <TextBox Name="txtCardTypeFieldName" FontSize="10" Grid.Column="3" LostFocus="txtCardTypeFieldName_LostFocus"></TextBox>
+                <Label Name="lblCardTypeFieldType" HorizontalAlignment="Right" FontSize="10" VerticalAlignment="Center" Padding="0" Grid.Row="2" Grid.Column="1">Field Type:</Label>
+                <ComboBox Name="cmbCardTypeFieldType" Grid.Row="2" Grid.Column="3" SelectedValuePath="Value" DisplayMemberPath="Text"/>
+                <Label Name="lblCardTypeFieldCardType" HorizontalAlignment="Right" FontSize="10" VerticalAlignment="Center" Padding="0" Grid.Row="4" Grid.Column="1">Card Type:</Label>
+                <ComboBox Name="cmbCardTypeFieldCardType" Grid.Row="4" Grid.Column="3" SelectedValuePath="Value" DisplayMemberPath="Text"/>
+                <Grid Grid.Row="6" Grid.Column="1">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <Label Name="lblListFields" FontSize="10" Padding="0" HorizontalAlignment="Center" VerticalAlignment="Bottom">List Fields</Label>
+                    <ListBox Name="lstListField" Grid.Row="1" SelectedValuePath="Value" DisplayMemberPath="Text"/>
+                </Grid>
+                <Grid Grid.Row="6" Grid.Column="3">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="auto"/>
+                        <ColumnDefinition Width="5"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="20"/>
+                        <RowDefinition Height="5"/>
+                        <RowDefinition Height="20"/>
+                        <RowDefinition Height="5"/>
+                        <RowDefinition Height="20"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <Label Name="lblListFieldName" HorizontalAlignment="Right" FontSize="10" VerticalAlignment="Center" Padding="0">Name:</Label>
+                    <TextBox Name="txtListFieldName" FontSize="10" Grid.Column="2"/>
+                    <Label Name="lblListFieldType" HorizontalAlignment="Right" FontSize="10" VerticalAlignment="Center" Padding="0" Grid.Row="2">Field Type:</Label>
+                    <ComboBox Name="cmbListFieldType" Grid.Row="2" Grid.Column="2" SelectedValuePath="Value" DisplayMemberPath="Text"/>
+                    <Label Name="lblListFieldCardType" HorizontalAlignment="Right" FontSize="10" VerticalAlignment="Center" Padding="0" Grid.Row="4">Card Type:</Label>
+                    <ComboBox Name="cmbListFieldCardType" Grid.Row="4" Grid.Column="2" SelectedValuePath="Value" DisplayMemberPath="Text"/>
+                </Grid>
+                <Grid Grid.Row="8" Grid.Column="1">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="47"/>
+                        <ColumnDefinition Width="6"/>
+                        <ColumnDefinition Width="47"/>
+                    </Grid.ColumnDefinitions>
+
+                    <Button Name="btnRemListField" Padding="0" FontSize="10">Remove</Button>
+                    <Button Name="btnAddListField" Grid.Column="2" Padding="0" FontSize="10">Add</Button>
+                </Grid>
+            </Grid>
+            <Grid Grid.Row="6">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="47"/>
+                    <ColumnDefinition Width="5"/>
+                    <ColumnDefinition Width="47"/>
+                </Grid.ColumnDefinitions>
+
+                <Button Name="btnRemCardTypeField" Padding="0" FontSize="10">Remove</Button>
+                <Button Name="btnAddCardTypeField" Grid.Column="2" Padding="0" FontSize="10" Click="btnAddCardTypeField_Click">Add</Button>
+            </Grid>
+        </Grid>
+    </Grid>
+</Window>

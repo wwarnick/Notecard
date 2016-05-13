@@ -43,38 +43,34 @@ namespace NotecardLib
 			}
 
 			string sql = @"
-				DROP TABLE IF EXISTS `card_type_field`;
-				DROP TABLE IF EXISTS `card_type`;
-
-				CREATE TABLE IF NOT EXISTS `card_type` (
+				CREATE TABLE `card_type` (
 					`id` INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-					`visible_name` TEXT NOT NULL,
-					`table_name` TEXT NOT NULL UNIQUE,
-					`inherits_card_type_id` INTEGER NULL DEFAULT NULL
+					`name` TEXT NOT NULL,
+					`parent_id` INTEGER NULL DEFAULT NULL
 						REFERENCES `card_type` (`id`)
 						ON UPDATE CASCADE ON DELETE SET NULL
-						DEFERRABLE INITIALLY DEFERRED
+						DEFERRABLE INITIALLY DEFERRED,
+					`context` INTEGER NOT NULL,
+					UNIQUE (`name`)
 				);
 
-				CREATE INDEX `idx_ct_inherits_card_type_id`
-					ON `card_type` (`inherits_card_type_id`);
+				CREATE INDEX `idx_ct_parent_id`
+					ON `card_type` (`parent_id`);
 
-				CREATE TABLE IF NOT EXISTS `card_type_field` (
+				CREATE TABLE `card_type_field` (
 					`id` INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
 					`card_type_id` INTEGER NOT NULL
 						REFERENCES `card_type`
 						ON UPDATE CASCADE ON DELETE CASCADE
 						DEFERRABLE INITIALLY DEFERRED,
+					`name` TEXT NOT NULL,
 					`field_type` INTEGER NOT NULL,
-					`visible_name` TEXT NOT NULL,
-					`column_name` TEXT NULL DEFAULT NULL,
 					`sort_order` INTEGER NOT NULL,
 					`ref_card_type_id` INTEGER NULL DEFAULT NULL
 						REFERENCES `card_type` (`id`)
 						ON UPDATE CASCADE ON DELETE SET NULL
 						DEFERRABLE INITIALLY DEFERRED,
-					`list_table_name` TEXT NULL DEFAULT NULL,
-					UNIQUE (`card_type_id`, `visible_name`)
+					UNIQUE (`card_type_id`, `name`)
 				);
 
 				CREATE INDEX `idx_ctf_card_type_id`
@@ -83,29 +79,88 @@ namespace NotecardLib
 				CREATE INDEX `idx_ctf_ref_card_type_id`
 					ON `card_type_field` (`ref_card_type_id`);
 
-				CREATE TABLE IF NOT EXISTS `card_list_field` (
+				CREATE TABLE `card` (
 					`id` INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-					`card_type_field_id` INTEGER NOT NULL
-						REFERENCES `card_type_field`
-						ON UPDATE CASCADE ON DELETE CASCADE
-						DEFERRABLE INITIALLY DEFERRED,
-					`field_type` INTEGER NOT NULL,
-					`visible_name` TEXT NOT NULL,
-					`column_name` TEXT NOT NULL,
-					`sort_order` INTEGER NOT NULL,
-					`ref_card_type_id` INTEGER NULL DEFAULT NULL
+					`card_type_id` INTEGER NOT NULL
 						REFERENCES `card_type` (`id`)
-						ON UPDATE CASCADE ON DELETE SET NULL
-						DEFERRABLE INITIALLY DEFERRED,
-					UNIQUE (`card_type_field_id`, `column_name`),
-					UNIQUE(`card_type_field_id`, `visible_name`)
+						ON UPDATE CASCADE ON DELETE CASCADE
+						DEFERRABLE INITIALLY DEFERRED
 				);
 
-				CREATE INDEX `idx_clf_card_type_field_id`
-					ON `card_list_field` (`card_type_field_id`);
+				CREATE INDEX `idx_c_card_type_id`
+					ON `card` (`card_type_id`);
 
-				CREATE INDEX `idx_clf_ref_card_type_id`
-					ON `card_list_field` (`ref_card_type_id`);";
+				CREATE TABLE `field_text` (
+					`id` INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+					`card_id` INTEGER NOT NULL
+						REFERENCES `card` (`id`)
+						ON UPDATE CASCADE ON DELETE CASCADE
+						DEFERRABLE INITIALLY DEFERRED,
+					`card_type_field_id` INTEGER NOT NULL
+						REFERENCES `card_type_field` (`id`)
+						ON UPDATE CASCADE ON DELETE CASCADE
+						DEFERRABLE INITIALLY DEFERRED,
+					`value` TEXT NOT NULL DEFAULT '',
+					UNIQUE (`card_id`, `card_type_field_id`)
+				);
+
+				CREATE INDEX `idx_ft_card_id`
+					ON `field_text` (`card_id`);
+
+				CREATE INDEX `idx_ft_card_type_field_id`
+					ON `field_text` (`card_type_field_id`);
+
+				CREATE TABLE `field_card` (
+					`id` INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+					`card_id` INTEGER NOT NULL
+						REFERENCES `card` (`id`)
+						ON UPDATE CASCADE ON DELETE CASCADE
+						DEFERRABLE INITIALLY DEFERRED,
+					`card_type_field_id` INTEGER NOT NULL
+						REFERENCES `card_type_field` (`id`)
+						ON UPDATE CASCADE ON DELETE CASCADE
+						DEFERRABLE INITIALLY DEFERRED,
+					`value` INTEGER NULL DEFAULT NULL
+						REFERENCES `card` (`id`)
+						ON UPDATE CASCADE ON DELETE SET NULL
+						DEFERRABLE INITIALLY DEFERRED,
+					UNIQUE (`card_id`, `card_type_field_id`)
+				);
+
+				CREATE INDEX `idx_fc_card_id`
+					ON `field_card` (`card_id`);
+
+				CREATE INDEX `idx_fc_card_type_field_id`
+					ON `field_card` (`card_type_field_id`);
+
+				CREATE INDEX `idx_fc_value`
+					ON `field_card` (`value`);
+
+				CREATE TABLE `field_list` (
+					`id` INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+					`card_id` INTEGER NOT NULL
+						REFERENCES `card` (`id`)
+						ON UPDATE CASCADE ON DELETE CASCADE
+						DEFERRABLE INITIALLY DEFERRED,
+					`card_type_field_id` INTEGER NOT NULL
+						REFERENCES `card_type_field` (`id`)
+						ON UPDATE CASCADE ON DELETE CASCADE
+						DEFERRABLE INITIALLY DEFERRED,
+					`value` INTEGER NULL DEFAULT NULL
+						REFERENCES `card` (`id`)
+						ON UPDATE CASCADE ON DELETE CASCADE
+						DEFERRABLE INITIALLY DEFERRED,
+					`sort_order` INTEGER NOT NULL
+				);
+
+				CREATE INDEX `idx_fl_card_id`
+					ON `field_list` (`card_id`);
+
+				CREATE INDEX `idx_fl_card_type_field_id`
+					ON `field_list` (`card_type_field_id`);
+
+				CREATE INDEX `idx_fl_value`
+					ON `field_list` (`value`);";
 
 			return execNonQuery(sql, path, null);
 		}
@@ -113,364 +168,444 @@ namespace NotecardLib
 		/// <summary>Saves a new card type to the database.</summary>
 		/// <param name="cardType">The card type to save.</param>
 		/// <param name="path">The path of the current database.</param>
+		/// <param name="result">The card type re-loaded from the database after being saved.</param>
 		/// <returns>Any error messages.</returns>
-		public static string saveNewCardType(CardType cardType, string path)
+		public static string saveNewCardType(CardType cardType, string path, out CardType result)
 		{
 			string errorMessage = string.Empty;
-			bool isChild = !string.IsNullOrEmpty(cardType.InheritsCardTypeID);
-
-			// insert card type record
-			string sql = string.Format(@"
-				INSERT INTO `card_type` (`visible_name`{0}) VALUES (@visible_name{1});
-				SELECT LAST_INSERT_ROWID() AS `id`",
-				(isChild ? ", `inherits_card_type_id`" : ""),
-				(isChild ? ", @inherits_card_type_id" : ""));
-
-			List<SQLiteParameter> parameters = new List<SQLiteParameter>() { createParam("@visible_name", DbType.String, cardType.VisibleName) };
-
-			if (isChild)
-				parameters.Add(createParam("@inherits_card_type_id", DbType.Int32, cardType.InheritsCardTypeID));
-
-			// execute
-			string[] result;
-			errorMessage += execReadField(sql.ToString(), path, parameters, out result, "id");
-
-			cardType.ID = result[0];
-			cardType.TableName = "c" + cardType.ID;
-
-			// update card type table name
-			StringBuilder bSql = new StringBuilder("UPDATE `card_type` SET `table_name` = @table_name WHERE `id` = @card_type_id;\n\n");
-			parameters.Clear();
-			parameters.Add(createParam("@table_name", DbType.String, cardType.TableName));
-			parameters.Add(createParam("@card_type_id", DbType.Int32, cardType.ID));
-			parameters.Add(createParam("@list_type_id", DbType.Int32, (int)DataType.List));
-
-			// insert card type field records
+			result = null;
+			List<SQLiteParameter> parameters = new List<SQLiteParameter>();
 			resetParamNames();
 
-			for (int i = 0; i < cardType.Fields.Count; i++)
+			// create card type record
+			StringBuilder sql = new StringBuilder();
+			sql.Append(@"
+				INSERT INTO `card_type` (`name`, `parent_id`, `context`) VALUES (@name, @parent_id, @context);
+
+				SELECT LAST_INSERT_ROWID() AS `id`;");
+
+			parameters.AddRange(new SQLiteParameter[] {
+					createParam("@name", DbType.String, cardType.Name),
+					createParam("@context", DbType.Int64, (int)cardType.Context)});
+
+			if (string.IsNullOrEmpty(cardType.ParentID))
+				parameters.Add(createParam("@parent_id", DbType.Int64, DBNull.Value));
+			else
+				parameters.Add(createParam("@parent_id", DbType.Int64, cardType.ParentID));
+
+			string[] cardTypeResult;
+			errorMessage += execReadField(sql.ToString(), path, parameters, out cardTypeResult, "id");
+			cardType.ID = cardTypeResult[0];
+
+			// create field records
+			if (cardType.Fields.Count > 0)
 			{
-				CardTypeField f = cardType.Fields[i];
+				sql.Clear();
+				parameters.Clear();
+				resetParamNames();
 
-				if (i > 0)
-					bSql.Append(",");
+				sql.Append(@"
+					INSERT INTO `card_type_field` (`card_type_id`, `name`, `field_type`, `sort_order`, `ref_card_type_id`) VALUES");
 
-				bSql.Append(@"
-						(@card_type_id, " + getNextParamName("field_type") + ", ");
-				parameters.Add(createParam(CurParamName, DbType.Int32, f.FieldType));
+				parameters.Add(createParam("@card_type_id", DbType.Int64, cardType.ID));
 
-				bSql.Append(getNextParamName("visible_name") + ", ");
-				parameters.Add(createParam(CurParamName, DbType.String, f.VisibleName));
-
-				bSql.Append(getNextParamName("column_name") + ", ");
-				parameters.Add(createParam(CurParamName, DbType.String, f.ColumnName));
-
-				bSql.Append(getNextParamName("sort_order") + ", ");
-				parameters.Add(createParam(CurParamName, DbType.Int32, i + 1));
-
-				bSql.Append(getNextParamName("ref_card_type_id") + ", ");
-				parameters.Add(createParam(CurParamName, DbType.Int32, f.RefCardTypeID));
-
-				bSql.Append(getNextParamName("list_table_name") + ")");
-				parameters.Add(createParam(CurParamName, DbType.String, f.ListTableName));
-			}
-
-			// complete insert query
-			if (bSql.Length > 0)
-			{
-				bSql.Insert(0, @"
-					INSERT INTO `card_type_field` (`card_type_id`, `field_type`, `visible_name`, `column_name`, `sort_order`, `ref_card_type_id`, `list_table_name`) VALUES");
-
-				bSql.Append(@";");
-			}
-
-			// update column_name and list_table_name, and get field ids and list table names
-			bSql.Append(@"
-
-					UPDATE `card_type_field` SET `column_name` = ('c' || `id`), `list_table_name` = IF(`field_type` = @list_type_id, ('l' || `id`), NULL) WHERE `card_type_id` = @card_type_id;
-					SELECT `id` FROM `card_type_field` WHERE `card_type_id` = @card_type_id ORDER BY `sort_order` ASC;");
-
-			// execute
-			List<string[]> fieldIDs;
-			errorMessage += execReadField(bSql.ToString(), path, parameters, out fieldIDs, "id");
-
-			bSql.Clear();
-			parameters.Clear();
-			StringBuilder listIDs = new StringBuilder();
-
-			for (int i = 0; i < cardType.Fields.Count; i++)
-			{
-				// get field ids
-				CardTypeField f = cardType.Fields[i];
-				f.ID = fieldIDs[i][0];
-
-				// build list field insert SQL
-				if (f.FieldType == DataType.List)
+				for (int i = 0; i < cardType.Fields.Count; i++)
 				{
-					listIDs.Append((listIDs.Length > 0 ? ", " : "") + f.ID); // build list of ids
+					CardTypeField f = cardType.Fields[i];
 
-					string fieldIDParam = getNextParamName("card_type_field_id");
-					parameters.Add(createParam(fieldIDParam, DbType.Int32, f.ID));
-
-					for (int j = 0; j < f.ListFields.Count; j++)
+					if (f.FieldType == DataType.List)
 					{
-						CardTypeField l = f.ListFields[j];
-
-						if (j > 0)
-							bSql.Append(",");
-
-						bSql.Append(@"
-						(" + fieldIDParam + ", " + getNextParamName("field_type"));
-						parameters.Add(createParam(CurParamName, DbType.Int32, l.FieldType));
-
-						bSql.Append(getNextParamName("visible_name") + ", ");
-						parameters.Add(createParam(CurParamName, DbType.String, l.VisibleName));
-
-						bSql.Append(getNextParamName("sort_order") + ", ");
-						parameters.Add(createParam(CurParamName, DbType.Int32, j + 1));
-
-						bSql.Append(getNextParamName("ref_card_type_id") + ")");
-						parameters.Add(createParam(CurParamName, DbType.Int32, l.RefCardTypeID));
+						CardType listResult;
+						errorMessage += saveNewCardType(f.ListType, path, out listResult);
+						f.RefCardTypeID = listResult.ID;
 					}
+
+					sql.Append((i > 0 ? ", " : "") + @"
+						(@card_type_id, " + getNextParamName("name"));
+					parameters.Add(createParam(CurParamName, DbType.String, f.Name));
+
+					sql.Append(", " + getNextParamName("field_type"));
+					parameters.Add(createParam(CurParamName, DbType.Int64, f.FieldType));
+
+					sql.Append(", " + getNextParamName("sort_order"));
+					parameters.Add(createParam(CurParamName, DbType.Int64, i + 1));
+
+					sql.Append(", " + getNextParamName("ref_card_type_id") + ")");
+					if (string.IsNullOrEmpty(f.RefCardTypeID))
+						parameters.Add(createParam(CurParamName, DbType.Int64, DBNull.Value));
+					else
+						parameters.Add(createParam(CurParamName, DbType.Int64, f.RefCardTypeID));
+				}
+
+				sql.Append(";");
+
+				errorMessage += execNonQuery(sql.ToString(), path, parameters);
+			}
+
+			// get final version of card type
+			errorMessage += getCardType(cardType.ID, path, out result);
+
+			return errorMessage;
+		}
+
+		/// <summary>Saves changes to an existing card type.</summary>
+		/// <param name="cardTypeID">The database ID of the card type to update.</param>
+		/// <param name="path">The path of the current database.</param>
+		/// <param name="changes">The changes to make.</param>
+		/// <returns>Any error messages.</returns>
+		public static string saveCardType(string cardTypeID, CardTypeChg change, string path)
+		{
+			string errorMessage = string.Empty;
+
+			CardType cardType;
+			errorMessage += getCardType(cardTypeID, path, out cardType);
+			string sql = null;
+
+			switch (change.ChgType)
+			{
+				case CardTypeChange.CardTypeNameChange:
+					sql = "UPDATE `card_type` SET `name` = @name WHERE `id` = @id;";
+					errorMessage += execNonQuery(sql, path, createParam("@name", DbType.String, (string)change.Parameters[0]), createParam("@id", DbType.Int64, cardType.ID));
+					break;
+				case CardTypeChange.CardTypeParentChange:
+					errorMessage += changeCardTypeParent(cardType, (string)change.Parameters[0], path);
+					break;
+				case CardTypeChange.CardTypeRemove:
+					errorMessage += removeCardType(cardType, path);
+					break;
+				case CardTypeChange.CardTypeFieldAdd:
+					errorMessage += addCardTypeField(cardType, (CardTypeField)change.Parameters[0], path);
+					break;
+				case CardTypeChange.CardTypeFieldNameChange:
+					sql = "UPDATE `card_type_field` SET `name` = @name WHERE `id` = @id;";
+					errorMessage += execNonQuery(sql, path, createParam("@name", DbType.String, (string)change.Parameters[1]), createParam("@id", DbType.Int64, (string)change.Parameters[0]));
+					break;
+				case CardTypeChange.CardTypeFieldTypeChange:
+					errorMessage += changeCardTypeFieldType((string)change.Parameters[0], (DataType)change.Parameters[1], path);
+					break;
+				case CardTypeChange.CardTypeFieldOrderChange:
+					sql = "UPDATE `card_type_field` SET `sort_order` = @sort_order WHERE `id` = @id;";
+					errorMessage += execNonQuery(sql, path, createParam("@id", DbType.Int64, (string)change.Parameters[0]), createParam("@sort_order", DbType.Int64, (string)change.Parameters[1]));
+					break;
+				case CardTypeChange.CardTypeFieldRemove:
+					errorMessage += removeCardTypeField((string)change.Parameters[0], path);
+					break;
+				default:
+					errorMessage += "Unknown change type: " + change.ChgType.ToString();
+					break;
+			}
+
+			return errorMessage;
+		}
+
+		/// <summary>Changes the parent of a card type and applies the changes to all associated cards.</summary>
+		/// <param name="cardType">The card type to change.</param>
+		/// <param name="parentID">The database ID of the new parent.</param>
+		/// <param name="path">The path of the current database.</param>
+		/// <returns>Any error messages.</returns>
+		private static string changeCardTypeParent(CardType cardType, string parentID, string path)
+		{
+			// TODO: if new parent is an ancestor, just delete the card types in between
+
+			string errorMessage = string.Empty;
+
+			StringBuilder sql = new StringBuilder("UPDATE `card_type` SET `parent_id` = @parent_id WHERE `id` = @card_type_id;");
+
+			List<SQLiteParameter> parameters = new List<SQLiteParameter>();
+			parameters.Add(createParam("@card_type_id", DbType.Int64, cardType.ID));
+			if (string.IsNullOrEmpty(parentID))
+				parameters.Add(createParam("@parent_id", DbType.Int64, DBNull.Value));
+			else
+				parameters.Add(createParam("@parent_id", DbType.Int64, parentID));
+
+			List<string> temp;
+			errorMessage += getCardTypeDescendents(cardType.ID, path, out temp);
+			string descendents = string.Join(", ", temp);
+
+			// remove old inherited fields
+			if (!string.IsNullOrEmpty(cardType.ParentID))
+			{
+				errorMessage += getCardTypeAncestry(cardType.ParentID, path, out temp);
+				string oldParents = string.Join(", ", temp);
+
+				// delete list cards first
+				sql.Append(@"
+					DELETE FROM `card`
+					WHERE `id` IN (
+						SELECT `fl`.`value`
+						FROM `field_list` `fl`
+							JOIN `card` `c` ON `c`.`id` = `fl`.`card_id`
+						WHERE `c`.`card_type_id` IN (" + descendents + @")
+							AND `fl`.`card_type_field_id` IN (
+								SELECT `id`
+								FROM `card_type_field`
+								WHERE `card_type_id` IN (" + oldParents + ")));");
+
+				// delete fields
+				string[] fieldTableNames = new string[] { "field_text", "field_card", "field_list" };
+
+				foreach (string fieldTableName in fieldTableNames)
+				{
+					sql.Append(@"
+
+					DELETE FROM `" + fieldTableName + @"`
+					WHERE `card_type_field_id` IN (SELECT `id` FROM `card_type_field` WHERE `card_type_id` IN (" + oldParents + @"))
+						AND `card_id` IN (SELECT `id` FROM `card` WHERE `card_type_id` IN (" + descendents + "));");
 				}
 			}
 
-			// insert list field records
-			if (bSql.Length > 0)
+			// add new inherited fields
+			if (!string.IsNullOrEmpty(parentID))
 			{
-				bSql.Append(@"
-					INSERT INTO `card_list_field` (`card_type_field_id`, `field_type`, `visible_name`, `sort_order`, `ref_card_type_id`) VALUES");
+				List<CardType> newParents;
+				errorMessage += getCardTypeAncestry(parentID, path, out newParents);
 
-				bSql.Append(@";
+				StringBuilder fieldText = new StringBuilder();
+				StringBuilder fieldCard = new StringBuilder();
 
-					UPDATE `card_list_field` SET `column_name` = ('c' || `id`) WHERE `card_type_field` IN (" + listIDs.ToString() + ");");
+				foreach (CardType parent in newParents)
+				{
+					foreach (CardTypeField f in parent.Fields)
+					{
+						switch (f.FieldType)
+						{
+							case DataType.Text:
+								fieldText.Append((fieldText.Length > 0 ? ", " : "") + f.ID);
+								break;
+							case DataType.Card:
+								fieldCard.Append((fieldCard.Length > 0 ? ", " : "") + f.ID);
+								break;
+							case DataType.List:
+								// do nothing
+								break;
+						}
+					}
+				}
 
-				errorMessage += execNonQuery(bSql.ToString(), path, parameters);
+				if (fieldText.Length > 0)
+				{
+					sql.Append(@"
+						INSERT INTO `field_text` (`card_id`, `card_type_field_id`, `value`)
+						SELECT `c`.`id`, `cdf`.`id`, ''
+						FROM `card` `c`
+							JOIN `card_type_field` `cdf` ON `cdf`.`id` IN (" + fieldText.ToString() + ");");
+				}
+
+				if (fieldCard.Length > 0)
+				{
+					sql.Append(@"
+						INSERT INTO `field_card` (`card_id`, `card_type_field_id`, `value`)
+						SELECT `c`.`id`, `cdf`.`id`, NULL
+						FROM `card` `c`
+							JOIN `card_type_field` `cdf` ON `cdf`.`id` IN (" + fieldCard.ToString() + ");");
+				}
 			}
 
-			// load completed and saved card type from database
-			errorMessage = getCardType(cardType.ID, path, out cardType);
+			// execute query
+			errorMessage += execNonQuery(sql.ToString(), path, parameters);
 
-			bSql.Clear();
+			return errorMessage;
+		}
 
-			// get card type table create SQL
-			bSql.Append(getCardTableCreateSql(cardType, path));
+		/// <summary>Removes a card type from the database.</summary>
+		/// <param name="cardType">The card type to remove.</param>
+		/// <param name="path">The path of the current database.</param>
+		/// <returns>Any error messages.</returns>
+		private static string removeCardType(CardType cardType, string path)
+		{
+			string errorMessage = string.Empty;
 
-			// get list field table create SQL
+			StringBuilder sql = new StringBuilder();
+			List<SQLiteParameter> parameters = new List<SQLiteParameter>();
+			parameters.Add(createParam("@card_type_id", DbType.Int64, cardType.ID));
+
+			// assign cards and child types to parent
+			if (!string.IsNullOrEmpty(cardType.ParentID))
+			{
+				sql.Append(@"
+					UPDATE `card_type` SET `parent_id` = @new_parent_id WHERE `parent_id` = @card_type_id;
+					UPDATE `card` SET `card_type_id` = @new_parent_id WHERE `card_type_id` = @card_type_id;");
+
+				parameters.Add(createParam("@new_parent_id", DbType.Int64, cardType.ParentID));
+			}
+
+			// get list of card types to delete
+			StringBuilder toDelete = new StringBuilder("@card_type_id");
+
+			// get list types
 			foreach (CardTypeField f in cardType.Fields)
 			{
 				if (f.FieldType == DataType.List)
-					bSql.Append("\n\n" + getListTableCreateSql(cardType, f, path));
+					toDelete.Append(", " + f.RefCardTypeID);
 			}
 
-			errorMessage += execNonQuery(bSql.ToString(), path, null);
+			sql.Append(@"
+					DELETE FROM `card_type` WHERE `id` IN (" + toDelete.ToString() + ");");
+
+			errorMessage += execNonQuery(sql.ToString(), path, parameters);
 
 			return errorMessage;
 		}
 
-		public static string saveCardType(CardType cardType, string path, IEnumerable<CardTypeChg> changes)
+		/// <summary>Adds a card type field to the database.</summary>
+		/// <param name="cardType">The owning card type.</param>
+		/// <param name="field">The field to add.</param>
+		/// <param name="path">The path of the curent database.</param>
+		/// <returns>Any error messages.</returns>
+		private static string addCardTypeField(CardType cardType, CardTypeField field, string path)
 		{
 			string errorMessage = string.Empty;
 
-			errorMessage += getCardType(cardType.ID, path, out cardType);
+			// insert card type field records
+			StringBuilder sql = new StringBuilder(@"
+				INSERT INTO `card_type_field` (`card_type_id`, `name`, `field_type`, `sort_order`, `ref_card_type_id`)
+				VALUES (@card_type_id, @name, @field_type, (SELECT COALESCE(MAX(`sort_order`), 0) + 1 FROM `card_type_field` WHERE `card_type_id` = @card_type_id), @ref_card_type_id);
+");
 
+			List<SQLiteParameter> parameters = new List<SQLiteParameter>()
+			{
+				createParam("@card_type_id", DbType.Int64, cardType.ID),
+				createParam("@name", DbType.String, field.Name),
+				createParam("@field_type", DbType.Int64, (int)field.FieldType)
+			};
+
+			SQLiteParameter refCardTypeID = createParam("@ref_card_type_id", DbType.Int64, DBNull.Value);
+
+			// insert card field records
+			List<string> temp;
+			errorMessage += getCardTypeDescendents(cardType.ID, path, out temp);
+			string descendents = string.Join(", ", temp);
+
+			switch (field.FieldType)
+			{
+				case DataType.Text:
+					sql.Append(@"
+				INSERT INTO `field_text` (`card_id`, `card_type_field_id`, `value`)
+				SELECT `id`, LAST_INSERT_ROWID(), '' FROM `card` WHERE `card_type_id` IN (" + descendents + ");");
+					break;
+				case DataType.Card:
+					sql.Append(@"
+				INSERT INTO `field_card` (`card_id`, `card_type_field_id`, `value`)
+				SELECT `id`, LAST_INSERT_ROWID(), NULL FROM `card` WHERE `card_type_id` IN (" + descendents + ");");
+
+					refCardTypeID.Value = field.RefCardTypeID;
+					break;
+				case DataType.List:
+					refCardTypeID.Value = field.RefCardTypeID;
+					break;
+			}
+
+			parameters.Add(refCardTypeID);
+
+			// execute sql
+			errorMessage += execNonQuery(sql.ToString(), path, parameters);
+
+			return errorMessage;
+		}
+
+		/// <summary>Changes a card type field's field type.</summary>
+		/// <param name="fieldID">The database ID of the card type field.</param>
+		/// <param name="newType">The type to change it to.</param>
+		/// <param name="path">The path of the current database.</param>
+		/// <returns>Any error messages.</returns>
+		private static string changeCardTypeFieldType(string fieldID, DataType newType, string path)
+		{
+			string errorMessage = string.Empty;
+
+			// TODO: allow changing to a list
+			if (newType == DataType.List)
+				return "A field cannot be changed to a list. This feature has not been implemented yet.";
+
+			CardTypeField oldField;
+			string cardTypeID;
+			errorMessage += getCardTypeField(fieldID, path, out oldField, out cardTypeID);
+
+			StringBuilder sql = new StringBuilder(@"
+						UPDATE `card_type_field` SET `field_type` = @field_type WHERE `id` = @card_type_field_id;");
 			List<SQLiteParameter> parameters = new List<SQLiteParameter>();
-			StringBuilder typeUpdate = new StringBuilder();
-
-			foreach (CardTypeChg chg in changes)
+			parameters.Add(createParam("@card_type_field_id", DbType.Int64, fieldID));
+			parameters.Add(createParam("@card_type_id", DbType.Int64, cardTypeID));
+			parameters.Add(createParam("@field_type", DbType.Int64, (int)newType));
+			
+			// remove old fields
+			switch (oldField.FieldType)
 			{
-				switch (chg.ChgType)
-				{
-					case CardTypeChange.DeleteCardType:
-
-						break;
-					case CardTypeChange.NameChange:
-						typeUpdate.Append((typeUpdate.Length > 0 ? ", " : "") + "`visible_name` = @type_visible_name");
-						parameters.Add(createParam("@type_visible_name", DbType.String, (string)chg.Parameters));
-						break;
-					case CardTypeChange.InheritChange:
-						typeUpdate.Append((typeUpdate.Length > 0 ? ", " : "") + "`inherits_card_type_id` = @type_inherits_card_type_id");
-						parameters.Add(createParam("@type_inherits_card_type_id", DbType.Int32, (string)chg.Parameters));
-
-						// TODO: apply change to existing data
-						break;
-					case CardTypeChange.FieldOrderChange:
-
-						break;
-					case CardTypeChange.FieldRemove:
-
-						break;
-					case CardTypeChange.FieldAdd:
-
-						break;
-					case CardTypeChange.FieldNameChange:
-
-						break;
-					case CardTypeChange.FieldTypeChange:
-
-						break;
-					case CardTypeChange.ListFieldOrderChange:
-
-						break;
-					case CardTypeChange.ListFieldRemove:
-
-						break;
-					case CardTypeChange.ListFieldNameChange:
-
-						break;
-					case CardTypeChange.ListFieldTypeChange:
-
-						break;
-					default:
-						errorMessage += "Unknown changed type: " + chg.ToString();
-						break;
-				}
+				case DataType.Text:
+					sql.Append(@"
+						DELETE FROM `field_text` WHERE `card_type_field_id` = @card_type_field_id;");
+					break;
+				case DataType.Card:
+					sql.Append(@"
+						DELETE FROM `field_card` WHERE `card_type_field_id` = @card_type_field_id;");
+					break;
+				case DataType.List:
+					sql.Append(@"
+						DELETE FROM `card_type_field` WHERE `id` = @list_type_id;
+						DELETE FROM `field_list` WHERE `card_type_field_id` = @card_type_field_id;");
+					parameters.Add(createParam("@list_type_id", DbType.Int64, oldField.RefCardTypeID));
+					break;
+				default:
+					errorMessage += "Unkown field type: " + oldField.FieldType.ToString();
+					break;
 			}
+
+			// insert new fields
+			List<string> temp;
+			errorMessage += getCardTypeDescendents(cardTypeID, path, out temp);
+			string descendents = string.Join(", ", temp);
+
+			switch (newType)
+			{
+				case DataType.Text:
+					sql.Append(@"
+						INSERT INTO `field_text` (`card_id`, `card_type_field_id`, `value`)
+						SELECT `id`, @card_type_field_id, '' FROM `card` WHERE `card_type_id` = @card_type_id;");
+					break;
+				case DataType.Card:
+					sql.Append(@"
+						INSERT INTO `field_card` (`card_id`, `card_type_field_id`, `value`)
+						SELECT `id`, @card_type_field_id, NULL FROM `card` WHERE `card_type_id` = @card_type_id;");
+					break;
+				case DataType.List:
+					// TODO: THIS!
+					break;
+				default:
+					errorMessage += "Unknown field type: " + newType.ToString();
+					break;
+			}
+
+			// execute sql
+			errorMessage += execNonQuery(sql.ToString(), path, parameters);
 
 			return errorMessage;
 		}
 
-		/// <summary>Builds a SQL script to create the card type's table.</summary>
-		/// <param name="type">The card type to build a table for.</param>
+		/// <summary>Removes a card type field from the database.</summary>
+		/// <param name="fieldID">The database ID of the card type field.</param>
 		/// <param name="path">The path of the current database.</param>
 		/// <returns>Any error messages.</returns>
-		public static string getCardTableCreateSql(CardType type, string path)
+		private static string removeCardTypeField(string fieldID, string path)
 		{
 			string errorMessage = string.Empty;
 
-			StringBuilder sql = new StringBuilder();
-			StringBuilder indexes = new StringBuilder();
+			// delete card_type_field record
+			StringBuilder sql = new StringBuilder(@"
+				DELETE FROM `card_type_field` WHERE `id` = @card_type_field_id;");
+			List<SQLiteParameter> parameters = new List<SQLiteParameter>();
+			parameters.Add(createParam("@card_type_field_id", DbType.Int64, fieldID));
 
-			sql.Append(@"
-				CREATE TABLE `" + type.TableName + @"` (
-					`id` INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT");
-
-			// add parent table foreign key
-			if (!string.IsNullOrEmpty(type.InheritsCardTypeID))
-			{
-				CardType parent = null;
-
-				errorMessage += getCardType(type.InheritsCardTypeID, path, out parent);
-
-				sql.Append(@",
-					`parent_id` INTEGER NOT NULL
-						REFERENCES `" + parent.TableName + @"` (`id`)
-						ON UPDATE CASCADE ON DELETE CASCADE
-						DEFERRABLE INITIALLY DEFERRED");
-
-				indexes.Append(@"
-				CREATE INDEX `idx_" + type.TableName + @"_parent_id`
-					ON `" + type.TableName + @"` (`parent_id`);");
-			}
-
-			// add fields
-			foreach (CardTypeField f in type.Fields)
-			{
-				sql.Append(@",
-					`" + f.ColumnName + "` ");
-
-				switch (f.FieldType)
-				{
-					case DataType.Card: // card ref type
-						CardType refType = null;
-						errorMessage += getCardType(f.RefCardTypeID, path, out refType);
-						sql.Append(
-							@"INTEGER NULL DEFAULT NULL
-								REFERENCES `" + refType.TableName + @"` (`id`)
-								ON UPDATE CASCADE ON DELETE SET NULL
-								DEFERRABLE INITIALLY DEFERRED");
-
-						indexes.Append(@"
-
-				CREATE INDEX (`idx_" + type.TableName + "_" + f.ColumnName + @"`
-					ON `" + type.TableName + "` (`" + f.ColumnName + "`);");
-						break;
-					case DataType.List:
-						// the list is contained in its own table
-						break;
-					case DataType.Text:
-						sql.Append("TEXT NULL DEFAULT NULL");
-						break;
-					default:
-						errorMessage += "Unknown field type: " + f.ToString();
-						break;
-				}
-			}
-
-			// finish table
-			sql.Append(@"
-			);");
-
-			// add indexes
-			sql.Append(indexes.ToString());
-
-			return errorMessage;
-		}
-
-		/// <summary>Builds a SQL script to create the list field's table.</summary>
-		/// <param name="type">The card type that contains the list.</param>
-		/// <param name="field">The list field.</param>
-		/// <param name="path">The path of the current database.</param>
-		/// <returns>Any error messages.</returns>
-		public static string getListTableCreateSql(CardType type, CardTypeField field, string path)
-		{
-			string errorMessage = string.Empty;
-
-			StringBuilder sql = new StringBuilder();
-			StringBuilder indexes = new StringBuilder();
-
-			sql.Append(@"
-				CREATE TABLE `" + field.ListTableName + @"` (
-					`id` INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT
-					`owner_id` INTEGER NOT NULL
-						REFERENCES `" + type.TableName + @"` (`id`)
-						ON UPDATE CASCADE ON DELETE CASCADE
-						DEFERRABLE INITIALLY DEFERRED");
-
-			indexes.Append(@"
-				CREATE INDEX `idx_" + field.ListTableName + @"_owner_id`
-					ON `" + field.ListTableName + @"` (`owner_id`);");
-
-			// add fields
-			foreach (CardTypeField f in field.ListFields)
+			// remove list type if list
+			CardTypeField field;
+			errorMessage += getCardTypeField(fieldID, path, out field);
+			if (field.FieldType == DataType.List)
 			{
 				sql.Append(@"
-					`" + f.ColumnName + "` ");
+				DELETE FROM `card_type` WHERE `id` = @list_type_id;");
 
-				switch (f.FieldType)
-				{
-					case DataType.Card: // card ref type
-						CardType refType = null;
-						errorMessage += getCardType(f.RefCardTypeID, path, out refType);
-						sql.Append(
-							@"INTEGER NULL DEFAULT NULL
-								REFERENCES `" + refType.TableName + @"` (`id`)
-								ON UPDATE CASCADE ON DELETE SET NULL
-								DEFERRABLE INITIALLY DEFERRED");
-
-						indexes.Append(@"
-
-				CREATE INDEX (`idx_" + field.ListTableName + "_" + f.ColumnName + @"
-					ON `" + field.ListTableName + "` (`" + f.ColumnName + "`);");
-						break;
-					case DataType.List:
-						errorMessage += "List types aren't allowed within lists.";
-						break;
-					case DataType.Text:
-						sql.Append("TEXT NULL DEFAULT NULL");
-						break;
-					default:
-						errorMessage += "Unknown field type: " + f.ToString();
-						break;
-				}
+				parameters.Add(createParam("@list_type_id", DbType.Int64, field.RefCardTypeID));
 			}
 
-			// finish table
-			sql.Append(@"
-			);");
-
-			// add indexes
-			sql.Append(indexes.ToString());
+			errorMessage += execNonQuery(sql.ToString(), path, parameters);
 
 			return errorMessage;
 		}
@@ -485,50 +620,620 @@ namespace NotecardLib
 			string errorMessage = string.Empty;
 
 			cardType = null;
-			string[] cardResults = null;
-			List<string[]> fieldResults = null;
 
-			// build card type
+			// get card type
 			string sql = "SELECT * FROM `card_type` WHERE `id` = @id;";
-			SQLiteParameter[] sqlParam = new SQLiteParameter[] { createParam("@id", DbType.Int32, id) };
+			List<SQLiteParameter> parameters = new List<SQLiteParameter>() { createParam("@id", DbType.Int64, id) };
+			string[] cardTypeResult;
+			errorMessage += execReadField(sql, path, parameters, out cardTypeResult, "name", "parent_id", "context");
 
-			errorMessage += execReadField(sql, path, sqlParam, out cardResults, "visible_name", "table_name", "inherits_card_type_id");
+			cardType = new CardType(id, cardTypeResult[0], cardTypeResult[1], (CardTypeContext)int.Parse(cardTypeResult[2]), 0);
 
-			if (string.IsNullOrEmpty(errorMessage))
+			// get fields
+			sql = "SELECT * FROM `card_type_field` WHERE `card_type_id` = @id ORDER BY `sort_order` ASC;";
+			List<string[]> fieldResult;
+			errorMessage += execReadField(sql, path, parameters, out fieldResult, "id", "name", "field_type", "ref_card_type_id");
+
+			for (int i = 0; i < fieldResult.Count; i++)
 			{
-				cardType = new CardType(id, cardResults[0], cardResults[1], cardResults[2]);
+				string[] f = fieldResult[i];
+				CardTypeField field = new CardTypeField(f[0], f[1], (DataType)int.Parse(f[2]), (i + 1).ToString(), f[3]);
 
-				// retrieve field data
-				sql = "SELECT * FROM `card_type_field` WHERE `card_type_id` = @id ORDER BY `sort_order` ASC;";
+				// get list type
+				if (field.FieldType == DataType.List)
+				{
+					CardType listType;
+					errorMessage += getCardType(field.RefCardTypeID, path, out listType);
+					field.ListType = listType;
+				}
 
-				errorMessage += execReadField(sql, path, sqlParam, out fieldResults, "id", "field_type", "visible_name", "column_name", "sort_order", "ref_card_type_id", "list_table_name");
+				cardType.Fields.Add(field);
 			}
 
-			// build fields
-			if (string.IsNullOrEmpty(errorMessage) && fieldResults.Count > 0)
+			// get field count
+			cardType.NumFields += cardType.Fields.Count;
+
+			string cardID = cardType.ParentID;
+			sql = @"
+					SELECT
+						`ct`.`parent_id`,
+						COALESCE(COUNT(`ctf`.`id`), 0) AS `num_fields`
+					FROM `card_type` `ct`
+						LEFT JOIN `card_type_field` `ctf` ON `ctf`.`card_type_id` = `ct`.`id`
+					WHERE `ct`.`id` = @card_type_id;";
+
+			while (!string.IsNullOrEmpty(cardID))
 			{
-				foreach (string[] f in fieldResults)
+				parameters.Clear();
+				parameters.Add(createParam("@card_type_id", DbType.Int64, cardID));
+				string[] countResult;
+				errorMessage += execReadField(sql, path, parameters, out countResult, "parent_id", "num_fields");
+
+				cardID = countResult[0];
+				cardType.NumFields += int.Parse(countResult[1]);
+			}
+
+			return errorMessage;
+		}
+
+		/// <summary>Retrieves a card type field.</summary>
+		/// <param name="id">The database ID of the card type field.</param>
+		/// <param name="path">The path of the current database.</param>
+		/// <param name="field">The retrieved card type field.</param>
+		/// <returns>Any error messages.</returns>
+		public static string getCardTypeField(string id, string path, out CardTypeField field)
+		{
+			string cardTypeID;
+			return getCardTypeField(id, path, out field, out cardTypeID);
+		}
+
+		/// <summary>Retrieves a card type field.</summary>
+		/// <param name="id">The database ID of the card type field.</param>
+		/// <param name="path">The path of the current database.</param>
+		/// <param name="field">The retrieved card type field.</param>
+		/// <param name="cardTypeID">The database ID of the owning card type.</param>
+		/// <returns>Any error messages.</returns>
+		public static string getCardTypeField(string id, string path, out CardTypeField field, out string cardTypeID)
+		{
+			string errorMessage = string.Empty;
+
+			string sql = "SELECT * FROM `card_type_field` WHERE `id` = @id;";
+			string[] result;
+			errorMessage += execReadField(sql, path, createParam("@id", DbType.Int64, id), out result, "card_type_id", "name", "field_type", "sort_order", "ref_card_type_id");
+
+			field = new CardTypeField(id, result[1], (DataType)int.Parse(result[2]), result[3], result[4]);
+			cardTypeID = result[0];
+
+			// get list type if it's a list
+			if (field.FieldType == DataType.List)
+			{
+				CardType listType;
+				errorMessage += getCardType(field.RefCardTypeID, path, out listType);
+				field.ListType = listType;
+			}
+
+			return errorMessage;
+		}
+
+		/// <summary>Gets a card type and all of its ancestors.</summary>
+		/// <param name="cardTypeID">The child card type.</param>
+		/// <param name="path">The path of the current database.</param>
+		/// <param name="ancestry">The retrieved card types.</param>
+		/// <returns>Any error messages.</returns>
+		public static string getCardTypeAncestry(string cardTypeID, string path, out List<CardType> ancestry)
+		{
+			CardType cardType;
+			string errorMessage = getCardType(cardTypeID, path, out cardType);
+			return errorMessage + getCardTypeAncestry(cardType, path, out ancestry);
+		}
+
+		/// <summary>Gets a card type's and all of its ancestors.</summary>
+		/// <param name="cardType">The child card type.</param>
+		/// <param name="path">The path of the current database.</param>
+		/// <param name="ancestry">The retrieved card types.</param>
+		/// <returns>Any error messages.</returns>
+		public static string getCardTypeAncestry(CardType cardType, string path, out List<CardType> ancestry)
+		{
+			string errorMessage = string.Empty;
+
+			ancestry = new List<CardType>() { cardType };
+			while (!string.IsNullOrEmpty(cardType.ParentID))
+			{
+				errorMessage += getCardType(cardType.ParentID, path, out cardType);
+				ancestry.Add(cardType);
+			}
+
+			return errorMessage;
+		}
+
+		/// <summary>Gets a card type and all of its ancestors' database IDs.</summary>
+		/// <param name="cardTypeID">The child card type.</param>
+		/// <param name="path">The path of the current database.</param>
+		/// <param name="ancestry">The retrieved card types' database IDs.</param>
+		/// <returns>Any error messages.</returns>
+		public static string getCardTypeAncestry(string cardTypeID, string path, out List<string> ancestry)
+		{
+			string errorMessage = string.Empty;
+
+			ancestry = new List<string>();
+			string parentID = cardTypeID;
+			string sql = "SELECT `parent_id` FROM `card_type` WHERE `id` = @id;";
+			while (!string.IsNullOrEmpty(parentID))
+			{
+				ancestry.Add(parentID);
+
+				string[] result;
+				errorMessage += execReadField(sql, path, createParam("@id", DbType.Int64, parentID), out result, "parent_id");
+				parentID = result[0];
+			}
+
+			return errorMessage;
+		}
+
+		/// <summary>Gets a card type and all of its descendents' database IDs.</summary>
+		/// <param name="cardTypeID">The parent card type.</param>
+		/// <param name="path">The path of the current database.</param>
+		/// <param name="descendents">The retrieved card types' database IDs.</param>
+		/// <returns>Any error messages.</returns>
+		public static string getCardTypeDescendents(string cardTypeID, string path, out List<string> descendents)
+		{
+			string errorMessage = string.Empty;
+
+			descendents = new List<string>();
+
+			string sql = "SELECT `id` FROM `card_type` WHERE `parent_id` IN (";
+
+			List<string> curList = new List<string>() { cardTypeID };
+			while (curList.Count > 0)
+			{
+				descendents.AddRange(curList);
+				string ids = string.Join(", ", curList);
+				curList.Clear();
+
+				List<string[]> results;
+				errorMessage += execReadField((sql + ids + ");"), path, (List<SQLiteParameter>)null, out results, "id");
+				foreach (string[] result in results)
 				{
-					CardTypeField field = new CardTypeField(f[0], (DataType)int.Parse(f[1]), f[2], f[3], f[4], f[5], f[6]);
+					curList.Add(result[0]);
+				}
+			}
 
-					// build list fields, if applicable
-					if (field.FieldType == DataType.List)
+			return errorMessage;
+		}
+
+		/// <summary>Creates a new card.</summary>
+		/// <param name="cardType">The type of card.</param>
+		/// <param name="path">The path of the current database.</param>
+		/// <param name="card">The new card.</param>
+		/// <returns>Any error messages.</returns>
+		public static string newCard(CardType cardType, string path, out Card card)
+		{
+			string errorMessage = string.Empty;
+			card = null;
+
+			StringBuilder sql = new StringBuilder();
+			List<SQLiteParameter> parameters = new List<SQLiteParameter>();
+			resetParamNames();
+
+			sql.Append(@"
+				INSERT INTO `card` (`card_type_id`) VALUES (@card_type_id);
+				SELECT LAST_INSERT_ROWID() AS `id`;");
+			parameters.Add(createParam("@card_type_id", DbType.Int64, cardType.ID));
+
+			string[] cardTypeResult;
+			errorMessage += execReadField(sql.ToString(), path, parameters, out cardTypeResult, "id");
+
+			string cardID = cardTypeResult[0];
+
+			// get parent card types
+			List<CardType> cardTypes;
+			errorMessage += getCardTypeAncestry(cardType, path, out cardTypes);
+
+			// insert fields
+			StringBuilder fieldText = new StringBuilder();
+			StringBuilder fieldCard = new StringBuilder();
+			parameters.Clear();
+
+			foreach (CardType ct in cardTypes)
+			{
+				foreach (CardTypeField f in ct.Fields)
+				{
+					switch (f.FieldType)
 					{
-						sql = "SELECT * FROM `card_type_list_field` WHERE `card_type_field_id` = @id ORDER BY `sort_order`;";
-						sqlParam[0] = createParam("@id", DbType.Int32, field.ID);
-						List<string[]> listResults;
-						errorMessage += execReadField(sql, path, sqlParam, out listResults, "id", "field_type", "visible_name", "column_name", "sort_order", "ref_card_type_id");
+						case DataType.Text:
+							fieldText.Append((fieldText.Length > 0 ? ", " : "") + @"
+								(@card_id, " + getNextParamName("card_type_field_id") + ")");
+							parameters.Add(createParam(CurParamName, DbType.Int64, f.ID));
+							break;
+						case DataType.Card:
+							fieldCard.Append((fieldCard.Length > 0 ? ", " : "") + @"
+								(@card_id, " + getNextParamName("card_type_field_id") + ")");
+							parameters.Add(createParam(CurParamName, DbType.Int64, f.ID));
+							break;
+						case DataType.List:
+							// do nothing
+							break;
+						default:
+							errorMessage += "Unknown field type: " + f.FieldType;
+							break;
+					}
+				}
+			}
 
-						if (string.IsNullOrEmpty(errorMessage))
-						{
-							foreach (string[] l in listResults)
+			sql.Clear();
+
+			if (fieldText.Length > 0)
+			{
+				sql.Append(@"
+					INSERT INTO `field_text` (`card_id`, `card_type_field_id`) VALUES" + fieldText.ToString() + ";");
+			}
+
+			if (fieldCard.Length > 0)
+			{
+				sql.Append(@"
+					INSERT INTO `field_card` (`card_id`, `card_type_field_id`) VALUES" + fieldCard.ToString() + ";");
+			}
+
+			if (sql.Length > 0)
+			{
+				parameters.Add(createParam("@card_id", DbType.Int64, cardID));
+				errorMessage += execNonQuery(sql.ToString(), path, parameters);
+			}
+
+			// get saved card
+			errorMessage += getCard(cardID, path, out card);
+
+			return errorMessage;
+		}
+
+		/// <summary>Saves changes to an existing card.</summary>
+		/// <param name="card">The updated card.</param>
+		/// <param name="path">The path of the current database.</param>
+		/// <returns>Any error messages.</returns>
+		public static string saveCard(Card card, string path)
+		{
+			string errorMessage = string.Empty;
+
+			StringBuilder sql = new StringBuilder();
+			List<SQLiteParameter> parameters = new List<SQLiteParameter>();
+			resetParamNames();
+
+			List<CardType> cardTypes;
+			errorMessage += getCardTypeAncestry(card.CType, path, out cardTypes);
+
+
+			int pastFields = 0;
+			foreach (CardType ct in cardTypes)
+			{
+				for (int i = 0; i < ct.Fields.Count; i++)
+				{
+					CardTypeField f = ct.Fields[i];
+					switch (f.FieldType)
+					{
+						case DataType.Text:
 							{
-								field.ListFields.Add(new CardTypeField(l[0], (DataType)int.Parse(l[1]), l[2], l[3], l[4], l[5]));
+								string field = (string)card.Fields[pastFields + i];
+								sql.Append(@"
+								UPDATE `field_text` SET `value` = " + getNextParamName("value") + " WHERE `card_id` = @card_id AND `card_type_field_id` = ");
+								parameters.Add(createParam(CurParamName, DbType.String, field));
+
+								sql.Append(getNextParamName("card_type_field_id") + ";");
+								parameters.Add(createParam(CurParamName, DbType.Int64, f.ID));
 							}
-						}
+							break;
+						case DataType.Card:
+							{
+								string field = (string)card.Fields[pastFields + i];
+								sql.Append(@"
+								UPDATE `field_card` SET `value` = " + getNextParamName("value") + " WHERE `card_id` = @card_id AND `card_type_field_id` = ");
+								parameters.Add(createParam(CurParamName, DbType.Int64, field));
+
+								sql.Append(getNextParamName("card_type_field_id") + ";");
+								parameters.Add(createParam(CurParamName, DbType.Int64, f.ID));
+							}
+							break;
+						case DataType.List:
+							{
+								List<Card> list = (List<Card>)card.Fields[pastFields + i];
+								for (int j = 0; j < list.Count; j++)
+								{
+									sql.Append(@"
+								UPDATE `field_list` SET `sort_order` = " + getNextParamName("sort_order"));
+									parameters.Add(createParam(CurParamName, DbType.Int64, j + 1));
+
+									sql.Append(" WHERE `value` = " + getNextParamName("value") + ";");
+									parameters.Add(createParam(CurParamName, DbType.Int64, list[j].ID));
+
+									errorMessage += saveCard(list[j], path);
+								}
+							}
+							break;
+						default:
+							errorMessage += "Unknown card type: " + f.FieldType;
+							break;
+					}
+				}
+
+				pastFields += ct.Fields.Count;
+			}
+
+			// execute changes
+			if (sql.Length > 0)
+			{
+				parameters.Add(createParam("@card_id", DbType.Int64, card.ID));
+				errorMessage += execNonQuery(sql.ToString(), path, parameters);
+			}
+
+			return errorMessage;
+		}
+
+		/// <summary>Retrieves a card from the database.</summary>
+		/// <param name="id">The database id of the card.</param>
+		/// <param name="path">The path of the current database.</param>
+		/// <param name="card">The card.</param>
+		/// <returns>Any error messages.</returns>
+		public static string getCard(string id, string path, out Card card)
+		{
+			string errorMessage = string.Empty;
+			card = null;
+
+			// get base card data
+			List<SQLiteParameter> parameters = new List<SQLiteParameter>() { createParam("@card_id", DbType.Int64, id) };
+			string sql = "SELECT `card_type_id` FROM `card` WHERE `id` = @card_id;";
+
+			string[] cardResult;
+			errorMessage += execReadField(sql, path, parameters, out cardResult, "card_type_id");
+
+			// get field data
+			CardType cardType;
+			errorMessage += getCardType(cardResult[0], path, out cardType);
+			card = new Card(cardType, id);
+
+			// get parent card types
+			List <CardType> cardTypes;
+			errorMessage += getCardTypeAncestry(cardType, path, out cardTypes);
+
+			int pastFields = 0;
+			foreach (CardType ct in cardTypes)
+			{
+				parameters.Clear();
+				parameters.Add(createParam("@card_id", DbType.Int64, id));
+				parameters.Add(createParam("@card_type_id", DbType.Int64, ct.ID));
+
+				bool hasTextField = false;
+				bool hasCardField = false;
+				bool hasListField = false;
+
+				foreach (CardTypeField f in ct.Fields)
+				{
+					switch (f.FieldType)
+					{
+						case DataType.Text:
+							hasTextField = true;
+							break;
+						case DataType.Card:
+							hasCardField = true;
+							break;
+						case DataType.List:
+							hasListField = true;
+							break;
+						default:
+							errorMessage += "Unknown field type: " + f.FieldType.ToString();
+							break;
 					}
 
-					cardType.Fields.Add(field);
+					if (hasTextField && hasCardField && hasListField)
+						break;
+				}
+
+				// get text fields
+				if (hasTextField)
+				{
+					List<string[]> textFieldResult;
+					sql = @"
+					SELECT `ft`.`value`, `ctf`.`card_type_id`
+					FROM `field_text` `ft`
+						JOIN `card_type_field` `ctf` ON `ctf`.`id` = `ft`.`card_type_field_id`
+					WHERE `ft`.`card_id` = @card_id
+						AND `ctf`.`card_type_id` = @card_type_id
+					ORDER BY `ctf`.`sort_order` ASC;";
+					errorMessage += execReadField(sql, path, parameters, out textFieldResult, "value");
+
+					// fill text fields
+					for (int i = 0, j = 0; i < ct.Fields.Count && j < textFieldResult.Count; i++)
+					{
+						if (ct.Fields[i].FieldType == DataType.Text)
+						{
+							card.Fields[pastFields + i] = textFieldResult[j][0];
+							j++;
+						}
+					}
+				}
+
+				// get card fields
+				if (hasCardField)
+				{
+					List<string[]> cardFieldResult;
+					sql = @"
+					SELECT `ft`.*
+					FROM `field_card` `fc`
+						JOIN `card_type_field` `ctf` ON `ctf`.`id` = `fc`.`card_type_field_id`
+					WHERE `ft`.`card_id` = @card_id
+						AND `ctf`.`card_type_id` = @card_type_id
+					ORDER BY `ctf`.`sort_order` ASC;";
+					errorMessage += execReadField(sql, path, parameters, out cardFieldResult, "value");
+
+					// fill card fields
+					for (int i = 0, j = 0; i < ct.Fields.Count && j < cardFieldResult.Count; i++)
+					{
+						if (ct.Fields[i].FieldType == DataType.Card)
+						{
+							card.Fields[pastFields + i] = cardFieldResult[j][0];
+							j++;
+						}
+					}
+				}
+
+				// get list fields
+				if (hasListField)
+				{
+					List<string[]> listFieldResult;
+					sql = @"
+					SELECT `fl`.*, `ctf`.`sort_order` AS `ctf_sort_order`
+					FROM `field_list` `fl`
+						JOIN `card_type_field` `ctf` ON `ctf`.`id` = `fl`.`card_type_field_id`
+					WHERE `fl`.`card_id` = @card_id
+						AND `ctf`.`card_type_id` = @card_type_id
+					ORDER BY `ctf`.`sort_order` ASC, `fl`.`sort_order` ASC;";
+					errorMessage += execReadField(sql, path, parameters, out listFieldResult, "value", "ctf_sort_order");
+
+					List<Card> items = new List<Card>();
+					string lastSortOrder = null;
+
+					int fieldIndex = -1;
+					for (int i = 0; i < listFieldResult.Count && fieldIndex < ct.Fields.Count; i++)
+					{
+						// if current list field is complete
+						if (listFieldResult[i][1] != lastSortOrder)
+						{
+							lastSortOrder = listFieldResult[i][1];
+
+							if (items.Count > 0)
+							{
+								do
+								{
+									fieldIndex++;
+								} while (ct.Fields[fieldIndex].FieldType != DataType.List);
+
+								card.Fields[pastFields + fieldIndex] = items;
+								items = new List<Card>();
+							}
+						}
+
+						// add list item
+						Card listCard;
+						errorMessage += getCard(listFieldResult[i][0], path, out listCard);
+						items.Add(listCard);
+					}
+
+					// add last items
+					if (items.Count > 0)
+					{
+						do
+						{
+							fieldIndex++;
+						} while (ct.Fields[fieldIndex].FieldType != DataType.List);
+
+						card.Fields[pastFields + fieldIndex] = items;
+					}
+				}
+
+				pastFields += ct.Fields.Count;
+			}
+
+			return errorMessage;
+		}
+
+		/// <summary>Adds a new list item.</summary>
+		/// <param name="card">The card that owns the list.</param>
+		/// <param name="cardTypeField">The list to add to.</param>
+		/// <param name="path">The path of the current database.</param>
+		/// <returns>Any error messages.</returns>
+		public static string newListItem(Card card, CardTypeField cardTypeField, string path)
+		{
+			string errorMessage = string.Empty;
+
+			// get next sort order
+			string sql = "SELECT COALESCE(MAX(`sort_order`), 0) + 1 AS `next_sort_order` FROM `field_list` WHERE `card_id` = @card_id AND `card_type_field_id` = @card_type_field_id;";
+			List<SQLiteParameter> parameters = new List<SQLiteParameter>();
+			parameters.Add(createParam("@card_id", DbType.Int64, card.ID));
+			parameters.Add(createParam("@card_type_field_id", DbType.Int64, cardTypeField.ID));
+
+			string[] orderResult;
+			errorMessage += execReadField(sql, path, parameters, out orderResult, "next_sort_order");
+
+			// add new card
+			Card listItem;
+			errorMessage += newCard(cardTypeField.ListType, path, out listItem);
+
+			// add field_list record
+			sql = @"
+				INSERT INTO `field_list` (`card_id`, `card_type_field_id`, `value`, `sort_order`)
+				VALUES (@card_id, @card_type_field_id, @value, @sort_order);";
+
+			parameters.Add(createParam("@value", DbType.Int64, listItem.ID));
+			parameters.Add(createParam("@sort_order", DbType.Int64, orderResult[0]));
+
+			errorMessage += execNonQuery(sql, path, parameters);
+
+			return errorMessage;
+		}
+
+		/// <summary>Gets the IDs and names of all card types.</summary>
+		/// <param name="path">The path of the current database.</param>
+		/// <param name="results">A list of two-dimensional arrays. [0] = ID; [1] = Name.</param>
+		/// <returns>Any error messages.</returns>
+		public static string getCardTypeIDsAndNames(string path, out List<string[]> results)
+		{
+			string errorMessage = string.Empty;
+
+			string sql = "SELECT `id`, `name` FROM `card_type` WHERE `context` = @context ORDER BY `name` ASC;";
+			errorMessage += execReadField(sql, path, new SQLiteParameter[] { createParam("@context", DbType.Int64, (int)CardTypeContext.Standalone) }, out results, "id", "name");
+
+			return errorMessage;
+		}
+
+		/// <summary>Gets the IDs and names of all fields in a card type.</summary>
+		/// <param name="cardTypeID">The database ID of the owning card type.</param>
+		/// <param name="path">The path of the current database.</param>
+		/// <param name="results">A list of two-dimensional arrays. [0] = ID; [1] = Name.</param>
+		/// <returns>Any error messages.</returns>
+		public static string getCardTypeFieldIDsAndNames(string cardTypeID, string path, out List<string[]> results)
+		{
+			string errorMessage = string.Empty;
+
+			string sql = "SELECT `id`, `name` FROM `card_type_field` WHERE `card_type_id` = @card_type_id ORDER BY `sort_order` ASC;";
+			errorMessage += execReadField(sql, path, createParam("@card_type_id", DbType.Int64, cardTypeID), out results, "id", "name");
+
+			return errorMessage;
+		}
+
+		/// <summary>Search for a specific string query.</summary>
+		/// <param name="query">The search query.</param>
+		/// <param name="path">The path of the current database.</param>
+		/// <returns>Any error messages.</returns>
+		public static string search(string query, string path, out string[] cardIDs)
+		{
+			// TODO: sort by relevance (number of keyword matches)
+			string errorMessage = string.Empty;
+			cardIDs = new string[0];
+
+			query = query.ToUpper();
+			string[] keywords = query.Split(' ');
+
+			StringBuilder sql = new StringBuilder();
+			foreach (string keyword in keywords)
+			{
+				sql.Append((sql.Length > 0 ? " OR " : "") + "UPPER(`ft`.`value`) LIKE '%" + keyword + "%'");
+			}
+
+			if (sql.Length > 0)
+			{
+				sql.Insert(0, @"
+					SELECT COALESCE(`fl`.`card_id`, `c`.`id`) AS `id`
+					FROM `field_text` `ft`
+						JOIN `card` `c` ON `c`.`id` = `ft`.`card_id`
+						LEFT JOIN `field_list` `fl` ON `fl`.`value` = `c`.`id`
+					WHERE ");
+				sql.Append(";");
+
+				List<string[]> results;
+				errorMessage += execReadField(sql.ToString(), path, (SQLiteParameter)null, out results, "id");
+
+				cardIDs = new string[results.Count];
+				for (int i = 0; i < cardIDs.Length; i++)
+				{
+					cardIDs[i] = results[i][0];
 				}
 			}
 
@@ -549,13 +1254,22 @@ namespace NotecardLib
 		/// <param name="sql">The SQL to execute.</param>
 		/// <param name="path">The path of the database to access.</param>
 		/// <param name="parameters">Any parameters used by the SQL string.</param>
+		public static string execNonQuery(string sql, string path, params SQLiteParameter[] parameters)
+		{
+			return execNonQuery(sql, path, (IEnumerable<SQLiteParameter>)parameters);
+		}
+
+		/// <summary>Executes a nonquery SQL string.</summary>
+		/// <param name="sql">The SQL to execute.</param>
+		/// <param name="path">The path of the database to access.</param>
+		/// <param name="parameters">Any parameters used by the SQL string.</param>
 		public static string execNonQuery(string sql, string path, IEnumerable<SQLiteParameter> parameters)
 		{
 			string errorMessage = string.Empty;
 
-			using (SQLiteConnection con = new SQLiteConnection(genConnectionString(path)))
+			try
 			{
-				try
+				using (SQLiteConnection con = new SQLiteConnection(genConnectionString(path)))
 				{
 					con.Open();
 
@@ -571,19 +1285,27 @@ namespace NotecardLib
 
 						cmd.ExecuteNonQuery();
 					}
+
 				}
-				catch (Exception ex)
-				{
-					errorMessage += ex.Message;
-				}
-				finally
-				{
-					if (con.State == ConnectionState.Open)
-						con.Close();
-				}
+			}
+			catch (Exception ex)
+			{
+				errorMessage += ex.Message;
 			}
 
 			return errorMessage;
+		}
+
+		/// <summary>Executes a SQL string and returns the requested value.</summary>
+		/// <param name="sql">The SQL to execute.</param>
+		/// <param name="path">The path of the database to access.</param>
+		/// <param name="parameter">A parameter used by the SQL string.</param>
+		/// <param name="result">The return values.</param>
+		/// <param name="fieldName">The names of the fields to return.</param>
+		/// <returns>Any error messages.</returns>
+		public static string execReadField(string sql, string path, SQLiteParameter parameter, out string[] result, params string[] fieldName)
+		{
+			return execReadField(sql, path, new SQLiteParameter[] { parameter }, out result, fieldName);
 		}
 
 		/// <summary>Executes an SQL string and returns the requested value.</summary>
@@ -592,6 +1314,7 @@ namespace NotecardLib
 		/// <param name="parameters">Any parameters used by the SQL string.</param>
 		/// <param name="result">The return values.</param>
 		/// <param name="fieldName">The names of the fields to return.</param>
+		/// <returns>Any error messages.</returns>
 		public static string execReadField(string sql, string path, IEnumerable<SQLiteParameter> parameters, out string[] result, params string[] fieldName)
 		{
 			string errorMessage = string.Empty;
@@ -640,12 +1363,24 @@ namespace NotecardLib
 			return errorMessage;
 		}
 
-		/// <summary>Executes an SQL string and returns the requested value.</summary>
+		/// <summary>Executes a SQL string and returns the requested value.</summary>
+		/// <param name="sql">The SQL to execute.</param>
+		/// <param name="path">The path of the database to access.</param>
+		/// <param name="parameter">A parameter used by the SQL string.</param>
+		/// <param name="result">The return values.</param>
+		/// <param name="fieldName">The names of the fields to return.</param>
+		public static string execReadField(string sql, string path, SQLiteParameter parameter, out List<string[]> result, params string[] fieldName)
+		{
+			return execReadField(sql, path, (parameter == null ? null : new SQLiteParameter[] { parameter }), out result, fieldName);
+		}
+
+		/// <summary>Executes a SQL string and returns the requested value.</summary>
 		/// <param name="sql">The SQL to execute.</param>
 		/// <param name="path">The path of the database to access.</param>
 		/// <param name="parameters">Any parameters used by the SQL string.</param>
 		/// <param name="result">The return values.</param>
 		/// <param name="fieldName">The names of the fields to return.</param>
+		/// <returns>Any error messages.</returns>
 		public static string execReadField(string sql, string path, IEnumerable<SQLiteParameter> parameters, out List<string[]> result, params string[] fieldName)
 		{
 			string errorMessage = string.Empty;
@@ -689,6 +1424,43 @@ namespace NotecardLib
 			{
 				errorMessage += ex.Message;
 				result = null;
+			}
+
+			return errorMessage;
+		}
+
+		/// <summary>Executes a SQL string and returns a dataset.</summary>
+		/// <param name="sql">The SQL to execute.</param>
+		/// <param name="path">The path of the database to access.</param>
+		/// <param name="parameters">Any parameters used by the SQL string.</param>
+		/// <param name="ds">The returned dataset.</param>
+		/// <returns>Any error messages.</returns>
+		public static string execDataSet(string sql, string path, IEnumerable<SQLiteParameter> parameters, out DataTable dt)
+		{
+			string errorMessage = string.Empty;
+			dt = new DataTable();
+
+			try
+			{
+				using (SQLiteConnection con = new SQLiteConnection(genConnectionString(path)))
+				using (SQLiteDataAdapter da = new SQLiteDataAdapter(sql, con))
+				using (SQLiteCommandBuilder b = new SQLiteCommandBuilder(da))
+				{
+					if (parameters != null)
+					{
+						foreach (SQLiteParameter p in parameters)
+						{
+							da.SelectCommand.Parameters.Add(p);
+						}
+					}
+
+					con.Open();
+					da.Fill(dt);
+				}
+			}
+			catch (Exception ex)
+			{
+				errorMessage += ex.Message;
 			}
 
 			return errorMessage;

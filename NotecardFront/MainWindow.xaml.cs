@@ -23,15 +23,7 @@ namespace NotecardFront
 	{
 		#region Members
 
-		private const string NewCardTypeName = "Card Type {0}";
-		private readonly int NewCardTypeNameIndex;
-		private readonly string NewCardTypeNameStart;
-		private readonly string NewCardTypeNameEnd;
-		private readonly string NewCardTypeFieldName = "Field {0}";
-		private readonly int NewCardTypeFieldNameIndex;
-		private readonly string NewCardTypeFieldNameStart;
-		private readonly string NewCardTypeFieldNameEnd;
-		private string path;
+		string path;
 
 		#endregion Members
 
@@ -40,266 +32,170 @@ namespace NotecardFront
 		public MainWindow()
 		{
 			InitializeComponent();
-			
-			// create new name templates
-			NewCardTypeNameIndex = NewCardTypeName.IndexOf("{0}");
-			NewCardTypeNameStart = NewCardTypeName.Substring(0, NewCardTypeNameIndex);
-			NewCardTypeNameEnd = NewCardTypeName.Substring(NewCardTypeNameIndex + 3);
 
-			NewCardTypeFieldNameIndex = NewCardTypeFieldName.IndexOf("{0}");
-			NewCardTypeFieldNameStart = NewCardTypeFieldName.Substring(0, NewCardTypeFieldNameIndex);
-			NewCardTypeFieldNameEnd = NewCardTypeFieldName.Substring(NewCardTypeFieldNameIndex + 3);
-
-			// fill field type combo boxes
-			Item[] items = new Item[3];
-			items[0] = new Item("Text", ((int)DataType.Text).ToString());
-			items[1] = new Item("Card", ((int)DataType.Card).ToString());
-			items[2] = new Item("List", ((int)DataType.List).ToString());
-			cmbCardTypeFieldType.ItemsSource = items;
-			cmbListFieldType.ItemsSource = items;
-
-			// !!TEMPORARY!!
+			// TEMPORARY!!
 			path = @"C:\Users\wwarnick\Desktop\newcardfile.sqlite";
-			string errorMessage = CardManager.createNewFile(path);
-
-			if (!string.IsNullOrEmpty(errorMessage))
-				MessageBox.Show(errorMessage);
 		}
 
 		#endregion Constructors
 
 		#region Methods
 
-		private void refreshCardTypeList()
+		private void btnShowCardTypes_Click(object sender, RoutedEventArgs e)
 		{
-			string selType = (string)lstCardType.SelectedValue;
-			string selField = (string)lstCardTypeField.SelectedValue;
-
-			List<string[]> results;
-			CardManager.getCardTypeIDsAndNames(path, out results);
-
-			Item[] items = new Item[results.Count];
-
-			for (int i = 0; i < items.Length; i++)
-			{
-				items[i] = new Item(results[i][1], results[i][0]);
-			}
-
-			lstCardType.ItemsSource = items;
-
-			if (listBoxContains(lstCardType, selType))
-				lstCardType.SelectedValue = selType;
-			
-			refreshCardTypeFieldList();
-
-			if (listBoxContains(lstCardTypeField, selField))
-				lstCardTypeField.SelectedValue = selField;
+			lclCardTypeSettings.Visibility = Visibility.Visible;
 		}
 
-		private bool listBoxContains(ListBox lb, string value)
+		#region Events
+
+		private void lclCardTypeSettings_IsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
 		{
-			Item[] items = (Item[])lb.ItemsSource;
+			string errorMessage = string.Empty;
 
-			if (items != null)
+			if (!(bool)e.NewValue)
 			{
-				foreach (Item i in items)
-				{
-					if (i.Value == value)
-						return true;
-				}
-			}
-
-			return false;
-		}
-
-		private void refreshCardTypeFieldList()
-		{
-			refreshCardTypeFieldList((string)lstCardType.SelectedValue);
-		}
-
-		private void refreshCardTypeFieldList(string cardTypeID)
-		{
-			if (cardTypeID == null)
-			{
-				lstCardTypeField.ItemsSource = new Item[0];
-			}
-			else
-			{
-				string selField = (string)lstCardTypeField.SelectedValue;
-
 				List<string[]> results;
-				CardManager.getCardTypeFieldIDsAndNames(cardTypeID, path, out results);
+				errorMessage += CardManager.getCardTypeIDsAndNames(path, out results);
 
 				Item[] items = new Item[results.Count];
-
 				for (int i = 0; i < items.Length; i++)
 				{
 					items[i] = new Item(results[i][1], results[i][0]);
 				}
 
-				lstCardTypeField.ItemsSource = items;
+				cmbAddCardType.ItemsSource = items;
 
-				if (listBoxContains(lstCardTypeField, selField))
-					lstCardTypeField.SelectedValue = selField;
-			}
-		}
-
-		private string findNextName(List<string[]> names, string newName, string newNameStart, string newNameEnd, int newNameIndex)
-		{
-			int nameNum = 1;
-			foreach (string[] r in names)
-			{
-				string name = r[1];
-
-				int temp;
-				if (name.StartsWith(newNameStart) && name.EndsWith(newNameEnd) && int.TryParse(name.Substring(newNameIndex, name.Length - newNameEnd.Length - newNameIndex), out temp) && temp >= nameNum)
-					nameNum = temp + 1;
-			}
-
-			return string.Format(newName, nameNum.ToString());
-		}
-
-		#region Events
-
-		private void btnAddCardType_Click(object sender, RoutedEventArgs e)
-		{
-			string errorMessage = string.Empty;
-
-			List<string[]> results;
-			errorMessage += CardManager.getCardTypeIDsAndNames(path, out results);
-
-			CardType ct = new CardType()
-			{
-				Name = findNextName(results, NewCardTypeName, NewCardTypeNameStart, NewCardTypeNameEnd, NewCardTypeNameIndex),
-				Context = CardTypeContext.Standalone
-			};
-
-			CardType result;
-			CardManager.saveNewCardType(ct, path, out result);
-
-			refreshCardTypeList();
-
-			if (!string.IsNullOrEmpty(errorMessage))
-				MessageBox.Show(errorMessage);
-		}
-
-		private void btnRemCardType_Click(object sender, RoutedEventArgs e)
-		{
-			string errorMessage = string.Empty;
-
-			if (!string.IsNullOrEmpty((string)lstCardType.SelectedValue))
-			{
-				errorMessage += CardManager.saveCardType((string)lstCardType.SelectedValue, new CardTypeChg(CardTypeChange.CardTypeRemove), path);
-
-				refreshCardTypeList();
-			}
-
-			if (!string.IsNullOrEmpty(errorMessage))
-				MessageBox.Show(errorMessage);
-		}
-
-		private void lstCardType_SelectionChanged(object sender, SelectionChangedEventArgs e)
-		{
-			string errorMessage = string.Empty;
-
-			string selValue = e.AddedItems.Count == 0 ? null : ((Item)e.AddedItems[0]).Value;
-
-			if (selValue == null)
-			{
-				txtCardTypeName.Text = string.Empty;
-			}
-			else
-			{
-				CardType ct;
-				errorMessage += CardManager.getCardType(selValue, path, out ct);
-
-				txtCardTypeName.Text = ct.Name;
-			}
-
-			refreshCardTypeFieldList(selValue);
-
-			if (!string.IsNullOrEmpty(errorMessage))
-				MessageBox.Show(errorMessage);
-		}
-
-		private void txtCardTypeName_LostFocus(object sender, RoutedEventArgs e)
-		{
-			string errorMessage = string.Empty;
-
-			if (!string.IsNullOrEmpty((string)lstCardType.SelectedValue) && !string.IsNullOrEmpty(txtCardTypeName.Text))
-			{
-				errorMessage += CardManager.saveCardType((string)lstCardType.SelectedValue, new CardTypeChg(CardTypeChange.CardTypeNameChange, txtCardTypeName.Text), path);
-
-				refreshCardTypeList();
-			}
-
-			if (!string.IsNullOrEmpty(errorMessage))
-				MessageBox.Show(errorMessage);
-		}
-
-		private void btnAddCardTypeField_Click(object sender, RoutedEventArgs e)
-		{
-			string errorMessage = string.Empty;
-
-			if (!string.IsNullOrEmpty((string)lstCardType.SelectedValue))
-			{
-				List<string[]> results;
-				errorMessage += CardManager.getCardTypeFieldIDsAndNames((string)lstCardType.SelectedValue, path, out results);
-
-				CardTypeField ctf = new CardTypeField()
+				for (int i = 0; i < pnlMain.Children.Count; i++)
 				{
-					Name = findNextName(results, NewCardTypeFieldName, NewCardTypeFieldNameStart, NewCardTypeFieldNameEnd, NewCardTypeFieldNameIndex),
-					FieldType = DataType.Text
-				};
+					CardControl c = (CardControl)pnlMain.Children[i];
 
-				CardManager.saveCardType((string)lstCardType.SelectedValue, new CardTypeChg(CardTypeChange.CardTypeFieldAdd, ctf), path);
-
-				refreshCardTypeFieldList();
+					if (CardManager.cardExists(c.CardID, path, ref errorMessage))
+					{
+						c.refreshUI();
+					}
+					else
+					{
+						pnlMain.Children.RemoveAt(i);
+						i--;
+					}
+				}
 			}
 
 			if (!string.IsNullOrEmpty(errorMessage))
 				MessageBox.Show(errorMessage);
 		}
 
-		private void txtCardTypeFieldName_LostFocus(object sender, RoutedEventArgs e)
+		private void btnAddCard_Click(object sender, RoutedEventArgs e)
 		{
 			string errorMessage = string.Empty;
 
-			if (!string.IsNullOrEmpty((string)lstCardTypeField.SelectedValue) && !string.IsNullOrEmpty(txtCardTypeFieldName.Text))
-			{
-				errorMessage += CardManager.saveCardType((string)lstCardType.SelectedValue, new CardTypeChg(CardTypeChange.CardTypeFieldNameChange, lstCardTypeField.SelectedValue, txtCardTypeFieldName.Text), path);
+			Card card;
+			errorMessage += CardManager.newCard((string)cmbAddCardType.SelectedValue, path, out card);
 
-				refreshCardTypeFieldList();
-			}
+			errorMessage += openCard(card.ID);
 
 			if (!string.IsNullOrEmpty(errorMessage))
 				MessageBox.Show(errorMessage);
 		}
 
-		private void lstCardTypeField_SelectionChanged(object sender, SelectionChangedEventArgs e)
+		private string openCard(string cardID)
 		{
 			string errorMessage = string.Empty;
 
-			string selValue = e.AddedItems.Count == 0 ? null : ((Item)e.AddedItems[0]).Value;
+			CardControl c = new CardControl();
+			c.CardID = cardID;
+			c.path = path;
+			Canvas.SetTop(c, 0d);
+			Canvas.SetLeft(c, 0d);
+			c.refreshUI();
+			c.PreviewMouseDown += CardControl_PreviewMouseDown;
+			pnlMain.Children.Add(c);
 
-			if (selValue == null)
+			return errorMessage;
+		}
+
+		private void CardControl_PreviewMouseDown(object sender, MouseButtonEventArgs e)
+		{
+			CardControl c = (CardControl)sender;
+			int oldZ = Canvas.GetZIndex(c);
+
+			// if already at the front
+			if (oldZ == pnlMain.Children.Count)
+				return;
+
+			Canvas.SetZIndex(c, pnlMain.Children.Count);
+
+			foreach (UIElement ui in pnlMain.Children)
 			{
-				txtCardTypeFieldName.Text = string.Empty;
-			}
-			else
-			{
-				CardTypeField ctf;
-				errorMessage += CardManager.getCardTypeField(selValue, path, out ctf);
+				if (ui == c)
+					continue;
 
-				txtCardTypeFieldName.Text = ctf.Name;
+				int z = Canvas.GetZIndex(ui);
+				if (z > oldZ)
+					Canvas.SetZIndex(ui, z - 1);
 			}
-
-			if (!string.IsNullOrEmpty(errorMessage))
-				MessageBox.Show(errorMessage);
 		}
 
 		#endregion Events
 
 		#endregion Methods
+
+		private void txtSearch_TextChanged(object sender, TextChangedEventArgs e)
+		{
+			string errorMessage = string.Empty;
+
+			string[] ids = null;
+
+			if (!string.IsNullOrEmpty(txtSearch.Text))
+				errorMessage += CardManager.search(txtSearch.Text, path, out ids);
+
+			if (ids == null || ids.Length == 0)
+			{
+				lstSearchResults.ItemsSource = new Item[0];
+				popSearchResults.IsOpen = false;
+			}
+			else
+			{
+				string[] names;
+				errorMessage += CardManager.getCardNames(ids, path, out names);
+
+				Item[] items = new Item[ids.Length];
+
+				for (int i = 0; i < ids.Length; i++)
+				{
+					items[i] = new Item(names[i], ids[i]);
+				}
+
+				lstSearchResults.ItemsSource = items;
+				popSearchResults.IsOpen = true;
+			}
+
+			if (!string.IsNullOrEmpty(errorMessage))
+				MessageBox.Show(errorMessage);
+		}
+
+		private void lstSearchResults_SelectionChanged(object sender, SelectionChangedEventArgs e)
+		{
+			string errorMessage = string.Empty;
+
+			if (e.AddedItems.Count > 0)
+			{
+				string id = ((Item)e.AddedItems[0]).Value;
+
+				foreach (CardControl c in pnlMain.Children)
+				{
+					// if the card is already on the board
+					if (c.CardID == id)
+						return;
+				}
+				
+				errorMessage += openCard(id);
+			}
+
+			popSearchResults.IsOpen = false;
+
+			if (!string.IsNullOrEmpty(errorMessage))
+				MessageBox.Show(errorMessage);
+		}
 	}
 }

@@ -5,7 +5,8 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
              xmlns:local="clr-namespace:NotecardFront"
              mc:Ignorable="d" 
-             d:DesignHeight="300" d:DesignWidth="600">
+             d:DesignHeight="300" d:DesignWidth="600"
+             IsVisibleChanged="this_IsVisibleChanged">
     <Grid Background="LightBlue">
         <Grid.RowDefinitions>
             <RowDefinition Height="15"/>
@@ -29,7 +30,7 @@
                 <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
 
-            <Label Name="lblCardTypes" FontSize="10" Padding="0" HorizontalAlignment="Center" VerticalAlignment="Bottom">Card Types</Label>
+            <TextBlock Name="lblCardTypes" FontSize="10" Padding="0" HorizontalAlignment="Center" VerticalAlignment="Bottom">Card Types</TextBlock>
             <ListBox Name="lstCardType" Grid.Row="1" SelectedValuePath="Value" DisplayMemberPath="Text" SelectionChanged="lstCardType_SelectionChanged"/>
         </Grid>
         <Grid Grid.Row="3" Grid.Column="1">
@@ -42,7 +43,7 @@
             <Button Name="btnRemCardType" Grid.Column="0" Padding="0" FontSize="10" Click="btnRemCardType_Click">Remove</Button>
             <Button Name="btnAddCardType" Grid.Column="2" Padding="0" FontSize="10" Click="btnAddCardType_Click">Add</Button>
         </Grid>
-        <Grid Grid.Column="3" Grid.Row="1" Grid.RowSpan="3">
+        <Grid Name="grdCardType" Grid.Column="3" Grid.Row="1" Grid.RowSpan="3" IsEnabled="False">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="100"/>
                 <ColumnDefinition Width="5"/>
@@ -53,25 +54,29 @@
                 <RowDefinition Height="5"/>
                 <RowDefinition Height="20"/>
                 <RowDefinition Height="5"/>
+                <RowDefinition Height="20"/>
+                <RowDefinition Height="5"/>
                 <RowDefinition Height="*"/>
                 <RowDefinition Height="5"/>
                 <RowDefinition Height="20"/>
             </Grid.RowDefinitions>
 
-            <Label Name="lblCardTypeName" FontSize="10" Padding="0" Content="Name:" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+            <TextBlock FontSize="10" Padding="0" HorizontalAlignment="Right" VerticalAlignment="Center">Name:</TextBlock>
             <TextBox Name="txtCardTypeName" FontSize="10" Padding="0" Grid.Column="2" LostFocus="txtCardTypeName_LostFocus"/>
-            <Label Name="lblCardTypeParent" FontSize="10" Padding="0" Content="Parent:" HorizontalAlignment="Right" VerticalAlignment="Center" Grid.Row="2"/>
+            <TextBlock FontSize="10" Padding="0" HorizontalAlignment="Right" VerticalAlignment="Center" Grid.Row="2">Parent:</TextBlock>
             <ComboBox Name="cmbCardTypeParent" Grid.Row="2" Grid.Column="2" SelectedValuePath="Value" DisplayMemberPath="Text" LostFocus="cmbCardTypeParent_LostFocus"/>
-            <Grid Grid.Row="4">
+            <TextBlock FontSize="10" Padding="0" HorizontalAlignment="Right" VerticalAlignment="Center" Grid.Row="4">Color:</TextBlock>
+            <ComboBox Name="cmbCardTypeColor" Grid.Row="4" Grid.Column="2" DisplayMemberPath="Text" SelectedValuePath="Value" LostFocus="cmbCardTypeColor_LostFocus"/>
+            <Grid Grid.Row="6">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="auto"/>
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
 
-                <Label Name="lblCardTypeFields" FontSize="10" Padding="0" HorizontalAlignment="Center" VerticalAlignment="Bottom">Fields</Label>
+                <TextBlock Name="lblCardTypeFields" FontSize="10" Padding="0" HorizontalAlignment="Center" VerticalAlignment="Bottom">Fields</TextBlock>
                 <ListBox Name="lstCardTypeField" Grid.Row="1" SelectedValuePath="Value" DisplayMemberPath="Text" SelectionChanged="lstCardTypeField_SelectionChanged"/>
             </Grid>
-            <Grid Grid.Row="4" Grid.Column="1" Grid.RowSpan="3" Grid.ColumnSpan="2">
+            <Grid Name="grdCardTypeField" Grid.Row="6" Grid.Column="1" Grid.RowSpan="3" Grid.ColumnSpan="2" IsEnabled="False">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="15"/>
                     <ColumnDefinition Width="100"/>
@@ -90,11 +95,11 @@
                     <RowDefinition Height="20"/>
                 </Grid.RowDefinitions>
 
-                <Label Name="lblCardTypeFieldName" HorizontalAlignment="Right" FontSize="10" VerticalAlignment="Center" Padding="0" Grid.Column="1">Name:</Label>
+                <TextBlock Name="lblCardTypeFieldName" HorizontalAlignment="Right" FontSize="10" VerticalAlignment="Center" Padding="0" Grid.Column="1">Name:</TextBlock>
                 <TextBox Name="txtCardTypeFieldName" FontSize="10" Grid.Column="3" LostFocus="txtCardTypeFieldName_LostFocus"></TextBox>
-                <Label Name="lblCardTypeFieldType" HorizontalAlignment="Right" FontSize="10" VerticalAlignment="Center" Padding="0" Grid.Row="2" Grid.Column="1">Field Type:</Label>
+                <TextBlock Name="lblCardTypeFieldType" HorizontalAlignment="Right" FontSize="10" VerticalAlignment="Center" Padding="0" Grid.Row="2" Grid.Column="1">Field Type:</TextBlock>
                 <ComboBox Name="cmbCardTypeFieldType" Grid.Row="2" Grid.Column="3" SelectedValuePath="Value" DisplayMemberPath="Text" LostFocus="cmbCardTypeFieldType_LostFocus"/>
-                <Label Name="lblCardTypeFieldCardType" HorizontalAlignment="Right" FontSize="10" VerticalAlignment="Center" Padding="0" Grid.Row="4" Grid.Column="1">Card Type:</Label>
+                <TextBlock Name="lblCardTypeFieldCardType" HorizontalAlignment="Right" FontSize="10" VerticalAlignment="Center" Padding="0" Grid.Row="4" Grid.Column="1">Card Type:</TextBlock>
                 <ComboBox Name="cmbCardTypeFieldCardType" Grid.Row="4" Grid.Column="3" SelectedValuePath="Value" DisplayMemberPath="Text" LostFocus="cmbCardTypeFieldCardType_LostFocus"/>
                 <Grid Grid.Row="6" Grid.Column="1">
                     <Grid.RowDefinitions>
@@ -102,10 +107,10 @@
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
 
-                    <Label Name="lblListFields" FontSize="10" Padding="0" HorizontalAlignment="Center" VerticalAlignment="Bottom">List Fields</Label>
+                    <TextBlock Name="lblListFields" FontSize="10" Padding="0" HorizontalAlignment="Center" VerticalAlignment="Bottom">List Fields</TextBlock>
                     <ListBox Name="lstListField" Grid.Row="1" SelectedValuePath="Value" DisplayMemberPath="Text" SelectionChanged="lstListField_SelectionChanged"/>
                 </Grid>
-                <Grid Grid.Row="6" Grid.Column="3">
+                <Grid Name="grdListField" Grid.Row="6" Grid.Column="3" IsEnabled="False">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="auto"/>
                         <ColumnDefinition Width="5"/>
@@ -120,11 +125,11 @@
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
 
-                    <Label Name="lblListFieldName" HorizontalAlignment="Right" FontSize="10" VerticalAlignment="Center" Padding="0">Name:</Label>
+                    <TextBlock Name="lblListFieldName" HorizontalAlignment="Right" FontSize="10" VerticalAlignment="Center" Padding="0">Name:</TextBlock>
                     <TextBox Name="txtListFieldName" FontSize="10" Grid.Column="2" LostFocus="txtListFieldName_LostFocus"/>
-                    <Label Name="lblListFieldType" HorizontalAlignment="Right" FontSize="10" VerticalAlignment="Center" Padding="0" Grid.Row="2">Field Type:</Label>
+                    <TextBlock Name="lblListFieldType" HorizontalAlignment="Right" FontSize="10" VerticalAlignment="Center" Padding="0" Grid.Row="2">Field Type:</TextBlock>
                     <ComboBox Name="cmbListFieldType" Grid.Row="2" Grid.Column="2" SelectedValuePath="Value" DisplayMemberPath="Text" LostFocus="cmbListFieldType_LostFocus"/>
-                    <Label Name="lblListFieldCardType" HorizontalAlignment="Right" FontSize="10" VerticalAlignment="Center" Padding="0" Grid.Row="4">Card Type:</Label>
+                    <TextBlock Name="lblListFieldCardType" HorizontalAlignment="Right" FontSize="10" VerticalAlignment="Center" Padding="0" Grid.Row="4">Card Type:</TextBlock>
                     <ComboBox Name="cmbListFieldCardType" Grid.Row="4" Grid.Column="2" SelectedValuePath="Value" DisplayMemberPath="Text" LostFocus="cmbListFieldCardType_LostFocus"/>
                 </Grid>
                 <Grid Grid.Row="8" Grid.Column="1">
@@ -138,7 +143,7 @@
                     <Button Name="btnAddListField" Grid.Column="2" Padding="0" FontSize="10" Click="btnAddListField_Click">Add</Button>
                 </Grid>
             </Grid>
-            <Grid Grid.Row="6">
+            <Grid Grid.Row="8">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="47"/>
                     <ColumnDefinition Width="5"/>

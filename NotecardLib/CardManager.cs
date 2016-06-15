@@ -24,7 +24,52 @@ namespace NotecardLib
 			get { return paramCurName; }
 		}
 
+		#region Name Templates
+
+		private const string NewCardTypeName = "Card Type {0}";
+		private static readonly int NewCardTypeNameIndex;
+		private static readonly string NewCardTypeNameStart;
+		private static readonly string NewCardTypeNameEnd;
+		private static readonly string NewCardTypeNameLike;
+
+		private const string NewCardTypeFieldName = "Field {0}";
+		private static readonly int NewCardTypeFieldNameIndex;
+		private static readonly string NewCardTypeFieldNameStart;
+		private static readonly string NewCardTypeFieldNameEnd;
+		private static readonly string NewCardTypeFieldNameLike;
+
+		private const string NewArrangementName = "Arrangement {0}";
+		private static readonly int NewArrangementNameIndex;
+		private static readonly string NewArrangementNameStart;
+		private static readonly string NewArrangementNameEnd;
+		private static readonly string NewArrangementNameLike;
+
+		#endregion Name Templates
+
 		#endregion Members
+
+		#region Constructors
+
+		static CardManager()
+		{
+			// create new name templates
+			NewCardTypeNameIndex = NewCardTypeName.IndexOf("{0}");
+			NewCardTypeNameStart = NewCardTypeName.Substring(0, NewCardTypeNameIndex);
+			NewCardTypeNameEnd = NewCardTypeName.Substring(NewCardTypeNameIndex + 3);
+			NewCardTypeNameLike = NewCardTypeNameStart + "%" + NewCardTypeNameEnd;
+
+			NewCardTypeFieldNameIndex = NewCardTypeFieldName.IndexOf("{0}");
+			NewCardTypeFieldNameStart = NewCardTypeFieldName.Substring(0, NewCardTypeFieldNameIndex);
+			NewCardTypeFieldNameEnd = NewCardTypeFieldName.Substring(NewCardTypeFieldNameIndex + 3);
+			NewCardTypeFieldNameLike = NewCardTypeFieldNameStart + "%" + NewCardTypeFieldNameEnd;
+
+			NewArrangementNameIndex = NewArrangementName.IndexOf("{0}");
+			NewArrangementNameStart = NewArrangementName.Substring(0, NewArrangementNameIndex);
+			NewArrangementNameEnd = NewArrangementName.Substring(NewArrangementNameIndex + 3);
+			NewArrangementNameLike = NewArrangementNameStart + "%" + NewArrangementNameEnd;
+		}
+
+		#endregion Constructors
 
 		#region Methods
 
@@ -51,6 +96,7 @@ namespace NotecardLib
 						ON UPDATE CASCADE ON DELETE SET NULL
 						DEFERRABLE INITIALLY DEFERRED,
 					`context` INTEGER NOT NULL,
+					`color` INTEGER NOT NULL DEFAULT 32768,
 					UNIQUE (`name`)
 				);
 
@@ -160,90 +206,109 @@ namespace NotecardLib
 					ON `field_list` (`card_type_field_id`);
 
 				CREATE INDEX `idx_fl_value`
-					ON `field_list` (`value`);";
+					ON `field_list` (`value`);
+
+				CREATE TABLE `arrangement` (
+					`id` INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+					`name` TEXT NOT NULL DEFAULT '',
+					UNIQUE (`name`)
+				);
+
+				CREATE TABLE `arrangement_card` (
+					`id` INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+					`arrangement_id` INTEGER NOT NULL
+						REFERENCES `arrangement` (`id`)
+						ON UPDATE CASCADE ON DELETE CASCADE
+						DEFERRABLE INITIALLY DEFERRED,
+					`card_id` INTEGER NOT NULL
+						REFERENCES `card` (`id`)
+						ON UPDATE CASCADE ON DELETE CASCADE
+						DEFERRABLE INITIALLY DEFERRED,
+					UNIQUE (`arrangement_id`, `card_id`)
+				);
+
+				CREATE INDEX `idx_ac_arrangement_id`
+					ON `arrangement_card` (`arrangement_id`);
+
+				CREATE INDEX `idx_ac_card_id`
+					ON `arrangement_card` (`card_id`);
+
+				INSERT INTO `arrangement` (`name`) VALUES ('Arrangement 1');
+
+				CREATE TABLE `arrangement_card_standalone` (
+					`arrangement_card_id` INTEGER NOT NULL PRIMARY KEY
+						REFERENCES `arrangement_card` (`id`)
+						ON UPDATE CASCADE ON DELETE CASCADE
+						DEFERRABLE INITIALLY DEFERRED,
+					`x` INTEGER NOT NULL DEFAULT 0,
+					`y` INTEGER NOT NULL DEFAULT 0,
+					`width` INTEGER NOT NULL DEFAULT 0
+				);
+
+				CREATE TABLE `arrangement_card_list` (
+					`arrangement_card_id` INTEGER NOT NULL PRIMARY KEY
+						REFERENCES `arrangement_card` (`id`)
+						ON UPDATE CASCADE ON DELETE CASCADE
+						DEFERRABLE INITIALLY DEFERRED
+				);
+
+				CREATE TABLE `arrangement_field_text` (
+					`id` INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+					`arrangement_card_id` INTEGER NOT NULL
+						REFERENCES `arrangement_card` (`id`)
+						ON UPDATE CASCADE ON DELETE CASCADE
+						DEFERRABLE INITIALLY DEFERRED,
+					`card_type_field_id` INTEGER NOT NULL
+						REFERENCES `card_type_field` (`id`)
+						ON UPDATE CASCADE ON DELETE CASCADE
+						DEFERRABLE INITIALLY DEFERRED,
+					`height_increase` INTEGER NOT NULL DEFAULT 0,
+					UNIQUE (`arrangement_card_id`, `card_type_field_id`)
+				);
+
+				CREATE INDEX `idx_aft_arrangement_card_id`
+					ON `arrangement_field_text` (`arrangement_card_id`);
+
+				CREATE INDEX `idx_aft_card_type_field_id`
+					ON `arrangement_field_text` (`card_type_field_id`);";
 
 			return execNonQuery(sql, path, null);
 		}
 
-		/// <summary>Saves a new card type to the database.</summary>
-		/// <param name="cardType">The card type to save.</param>
+		#region Card Types
+
+		/// <summary>Creates a new card type.</summary>
+		/// <param name="context">The context of the card type, whether standalone or a list.</param>
 		/// <param name="path">The path of the current database.</param>
-		/// <param name="result">The card type re-loaded from the database after being saved.</param>
+		/// <param name="id">The database ID of the card type.</param>
 		/// <returns>Any error messages.</returns>
-		public static string saveNewCardType(CardType cardType, string path, out CardType result)
+		public static string newCardType(CardTypeContext context, string path, out string id)
 		{
 			string errorMessage = string.Empty;
-			result = null;
-			List<SQLiteParameter> parameters = new List<SQLiteParameter>();
-			resetParamNames();
 
-			// create card type record
-			StringBuilder sql = new StringBuilder();
-			sql.Append(@"
-				INSERT INTO `card_type` (`name`, `parent_id`, `context`) VALUES (@name, @parent_id, @context);
+			// get new name
+			string nameSql = "SELECT `name` FROM `card_type` WHERE `name` LIKE @name;";
 
-				SELECT LAST_INSERT_ROWID() AS `id`;");
+			List<string> names;
+			errorMessage += execReadField(nameSql, path, createParam("@name", DbType.String, NewCardTypeNameLike), out names, "name");
 
-			parameters.AddRange(new SQLiteParameter[] {
-					createParam("@name", DbType.String, cardType.Name),
-					createParam("@context", DbType.Int64, (int)cardType.Context)});
+			string name = findNextName(names, NewCardTypeName, NewCardTypeNameStart, NewCardTypeNameEnd, NewCardTypeNameIndex);
 
-			if (string.IsNullOrEmpty(cardType.ParentID))
-				parameters.Add(createParam("@parent_id", DbType.Int64, DBNull.Value));
-			else
-				parameters.Add(createParam("@parent_id", DbType.Int64, cardType.ParentID));
+			// insert record
+			string sql = @"
+				INSERT INTO `card_type` (`name`, `context`) VALUES (@name, @context);
+				SELECT LAST_INSERT_ROWID() AS `id`;";
 
-			string[] cardTypeResult;
-			errorMessage += execReadField(sql.ToString(), path, parameters, out cardTypeResult, "id");
-			cardType.ID = cardTypeResult[0];
-
-			// create field records
-			if (cardType.Fields.Count > 0)
+			SQLiteParameter[] parameters = new SQLiteParameter[]
 			{
-				sql.Clear();
-				parameters.Clear();
-				resetParamNames();
+				createParam("@name", DbType.String, name),
+				createParam("@context", DbType.Int64, (int)context)
+			};
 
-				sql.Append(@"
-					INSERT INTO `card_type_field` (`card_type_id`, `name`, `field_type`, `sort_order`, `ref_card_type_id`) VALUES");
+			errorMessage += execReadField(sql, path, parameters, out id, "id");
 
-				parameters.Add(createParam("@card_type_id", DbType.Int64, cardType.ID));
-
-				for (int i = 0; i < cardType.Fields.Count; i++)
-				{
-					CardTypeField f = cardType.Fields[i];
-
-					if (f.FieldType == DataType.List)
-					{
-						CardType listResult;
-						errorMessage += saveNewCardType(f.ListType, path, out listResult);
-						f.RefCardTypeID = listResult.ID;
-					}
-
-					sql.Append((i > 0 ? ", " : "") + @"
-						(@card_type_id, " + getNextParamName("name"));
-					parameters.Add(createParam(CurParamName, DbType.String, f.Name));
-
-					sql.Append(", " + getNextParamName("field_type"));
-					parameters.Add(createParam(CurParamName, DbType.Int64, f.FieldType));
-
-					sql.Append(", " + getNextParamName("sort_order"));
-					parameters.Add(createParam(CurParamName, DbType.Int64, i + 1));
-
-					sql.Append(", " + getNextParamName("ref_card_type_id") + ")");
-					if (string.IsNullOrEmpty(f.RefCardTypeID))
-						parameters.Add(createParam(CurParamName, DbType.Int64, DBNull.Value));
-					else
-						parameters.Add(createParam(CurParamName, DbType.Int64, f.RefCardTypeID));
-				}
-
-				sql.Append(";");
-
-				errorMessage += execNonQuery(sql.ToString(), path, parameters);
-			}
-
-			// get final version of card type
-			errorMessage += getCardType(cardType.ID, path, out result);
+			// add title field
+			errorMessage += saveCardType(id, new CardTypeChg(CardTypeChange.CardTypeFieldAdd, "Name"), path);
 
 			return errorMessage;
 		}
@@ -270,11 +335,14 @@ namespace NotecardLib
 				case CardTypeChange.CardTypeParentChange:
 					errorMessage += changeCardTypeParent(cardType, (string)change.Parameters[0], path);
 					break;
+				case CardTypeChange.CardTypeColorChange:
+					errorMessage += changeCardTypeColor(cardTypeID, (int)change.Parameters[0], path);
+					break;
 				case CardTypeChange.CardTypeRemove:
 					errorMessage += removeCardType(cardType, path);
 					break;
 				case CardTypeChange.CardTypeFieldAdd:
-					errorMessage += addCardTypeField(cardType, (CardTypeField)change.Parameters[0], path);
+					errorMessage += addCardTypeField(cardType.ID, ((change.Parameters == null || change.Parameters.Length == 0) ? null : (string)change.Parameters[0]), path);
 					break;
 				case CardTypeChange.CardTypeFieldNameChange:
 					sql = "UPDATE `card_type_field` SET `name` = @name WHERE `id` = @id;";
@@ -321,13 +389,13 @@ namespace NotecardLib
 			else
 				parameters.Add(createParam("@parent_id", DbType.Int64, parentID));
 
-			List<string> temp;
-			errorMessage += getCardTypeDescendents(cardType.ID, path, out temp);
-			string descendents = string.Join(", ", temp);
+			string descendents;
+			errorMessage += getCardTypeDescendents(cardType.ID, path, out descendents);
 
 			// remove old inherited fields
 			if (!string.IsNullOrEmpty(cardType.ParentID))
 			{
+				List<string> temp;
 				errorMessage += getCardTypeAncestry(cardType.ParentID, path, out temp);
 				string oldParents = string.Join(", ", temp);
 
@@ -412,6 +480,28 @@ namespace NotecardLib
 			return errorMessage;
 		}
 
+		/// <summary>Changes a card type's color.</summary>
+		/// <param name="cardTypeID">The database ID of the card type to change.</param>
+		/// <param name="color">The new color.</param>
+		/// <param name="path">The path of the current database.</param>
+		/// <returns>Any error messages.</returns>
+		private static string changeCardTypeColor(string cardTypeID, int color, string path)
+		{
+			string errorMessage = string.Empty;
+
+			string sql = "UPDATE `card_type` SET `color` = @color WHERE `id` = @id;";
+
+			SQLiteParameter[] parameters = new SQLiteParameter[]
+			{
+				createParam("@id", DbType.Int64, cardTypeID),
+				createParam("@color", DbType.Int64, color)
+			};
+
+			errorMessage += execNonQuery(sql, path, parameters);
+
+			return errorMessage;
+		}
+
 		/// <summary>Removes a card type from the database.</summary>
 		/// <param name="cardType">The card type to remove.</param>
 		/// <param name="path">The path of the current database.</param>
@@ -453,54 +543,59 @@ namespace NotecardLib
 		}
 
 		/// <summary>Adds a card type field to the database.</summary>
-		/// <param name="cardType">The owning card type.</param>
-		/// <param name="field">The field to add.</param>
+		/// <param name="cardTypeID">The database ID of the owning card type.</param>
+		/// <param name="name">The name of the field.</param>
 		/// <param name="path">The path of the curent database.</param>
 		/// <returns>Any error messages.</returns>
-		private static string addCardTypeField(CardType cardType, CardTypeField field, string path)
+		private static string addCardTypeField(string cardTypeID, string name, string path)
 		{
 			string errorMessage = string.Empty;
 
-			// insert card type field records
-			StringBuilder sql = new StringBuilder(@"
-				INSERT INTO `card_type_field` (`card_type_id`, `name`, `field_type`, `sort_order`, `ref_card_type_id`)
-				VALUES (@card_type_id, @name, @field_type, (SELECT COALESCE(MAX(`sort_order`), 0) + 1 FROM `card_type_field` WHERE `card_type_id` = @card_type_id), @ref_card_type_id);
-");
-
-			List<SQLiteParameter> parameters = new List<SQLiteParameter>()
+			// get new name
+			if (string.IsNullOrEmpty(name))
 			{
-				createParam("@card_type_id", DbType.Int64, cardType.ID),
-				createParam("@name", DbType.String, field.Name),
-				createParam("@field_type", DbType.Int64, (int)field.FieldType)
-			};
+				string nameSql = "SELECT `name` FROM `card_type_field` WHERE `card_type_id` = @card_type_id AND `name` LIKE @name;";
 
-			SQLiteParameter refCardTypeID = createParam("@ref_card_type_id", DbType.Int64, DBNull.Value);
+				SQLiteParameter[] nameParams = new SQLiteParameter[]
+				{
+					createParam("@card_type_id", DbType.Int64, cardTypeID),
+					createParam("@name", DbType.String, NewCardTypeFieldNameLike)
+				};
 
-			// insert card field records
-			List<string> temp;
-			errorMessage += getCardTypeDescendents(cardType.ID, path, out temp);
-			string descendents = string.Join(", ", temp);
+				List<string> names;
+				errorMessage += execReadField(nameSql, path, nameParams, out names, "name");
 
-			switch (field.FieldType)
-			{
-				case DataType.Text:
-					sql.Append(@"
-				INSERT INTO `field_text` (`card_id`, `card_type_field_id`, `value`)
-				SELECT `id`, LAST_INSERT_ROWID(), '' FROM `card` WHERE `card_type_id` IN (" + descendents + ");");
-					break;
-				case DataType.Card:
-					sql.Append(@"
-				INSERT INTO `field_card` (`card_id`, `card_type_field_id`, `value`)
-				SELECT `id`, LAST_INSERT_ROWID(), NULL FROM `card` WHERE `card_type_id` IN (" + descendents + ");");
-
-					refCardTypeID.Value = field.RefCardTypeID;
-					break;
-				case DataType.List:
-					refCardTypeID.Value = field.RefCardTypeID;
-					break;
+				name = findNextName(names, NewCardTypeFieldName, NewCardTypeFieldNameStart, NewCardTypeFieldNameEnd, NewCardTypeFieldNameIndex);
 			}
 
-			parameters.Add(refCardTypeID);
+			// get all affected card type ids
+			string descendents;
+			errorMessage += getCardTypeDescendents(cardTypeID, path, out descendents);
+
+			// insert card type field and card records
+			string sql = @"
+				INSERT INTO `card_type_field` (`card_type_id`, `name`, `field_type`, `sort_order`)
+				VALUES (@card_type_id, @name, @field_type, (SELECT COALESCE(MAX(`sort_order`), 0) + 1 FROM `card_type_field` WHERE `card_type_id` = @card_type_id));
+
+				CREATE TEMPORARY TABLE `ctf_id`(`id` INTEGER PRIMARY KEY);
+				INSERT INTO `ctf_id` VALUES (LAST_INSERT_ROWID());
+
+				INSERT INTO `field_text` (`card_id`, `card_type_field_id`, `value`)
+				SELECT `c`.`id`, `ctf_id`.`id`, '' FROM `card` `c` JOIN `ctf_id` WHERE `c`.`card_type_id` IN (" + descendents + @");
+
+				INSERT INTO `arrangement_field_text` (`arrangement_card_id`, `card_type_field_id`)
+				SELECT `ac`.`id`, `ctf_id`.`id`
+				FROM `arrangement_card` `ac`
+					JOIN `card` `c` ON `c`.`id` = `ac`.`card_id`
+					JOIN `ctf_id`
+				WHERE `c`.`card_type_id` IN (" + descendents + ");";
+
+			SQLiteParameter[] parameters = new SQLiteParameter[]
+			{
+				createParam("@card_type_id", DbType.Int64, cardTypeID),
+				createParam("@name", DbType.String, name),
+				createParam("@field_type", DbType.Int64, (int)DataType.Text)
+			};
 
 			// execute sql
 			errorMessage += execNonQuery(sql.ToString(), path, parameters);
@@ -533,7 +628,8 @@ namespace NotecardLib
 			{
 				case DataType.Text:
 					sql.Append(@"
-						DELETE FROM `field_text` WHERE `card_type_field_id` = @card_type_field_id;");
+						DELETE FROM `field_text` WHERE `card_type_field_id` = @card_type_field_id;
+						DELETE FROM `arrangement_field_text` WHERE `card_type_field_id` = @card_type_field_id;");
 					break;
 				case DataType.Card:
 					sql.Append(@"
@@ -551,16 +647,18 @@ namespace NotecardLib
 			}
 
 			// insert new fields
-			List<string> temp;
-			errorMessage += getCardTypeDescendents(cardTypeID, path, out temp);
-			string descendents = string.Join(", ", temp);
+			string descendents;
+			errorMessage += getCardTypeDescendents(cardTypeID, path, out descendents);
 
 			switch (newType)
 			{
 				case DataType.Text:
 					sql.Append(@"
 						INSERT INTO `field_text` (`card_id`, `card_type_field_id`, `value`)
-						SELECT `id`, @card_type_field_id, '' FROM `card` WHERE `card_type_id` = @card_type_id;");
+						SELECT `id`, @card_type_field_id, '' FROM `card` WHERE `card_type_id` = @card_type_id;
+
+						INSERT INTO `arrangement_field_text` (`arrangement_card_id`, `card_type_field_id`)
+						SELECT `ac`.`id`, @card_type_field_id FROM `arrangement_card` `ac` JOIN `card` `c` ON `c`.`id` = `ac`.`card_id` WHERE `c`.`card_type_id` = @card_type_id;");
 					break;
 				case DataType.Card:
 					sql.Append(@"
@@ -609,9 +707,8 @@ namespace NotecardLib
 			// clear out invalidated values
 			if (newType != null)
 			{
-				List<string> temp;
-				errorMessage += getCardTypeDescendents(newType.ID, path, out temp);
-				string newDescendents = string.Join(", ", temp);
+				string newDescendents;
+				errorMessage += getCardTypeDescendents(newType.ID, path, out newDescendents);
 
 				sql.Append(@"
 					UPDATE `field_card` SET `value` = NULL
@@ -703,9 +800,9 @@ namespace NotecardLib
 				: "SELECT * FROM `card_type` WHERE `id` = @id;";
 			List<SQLiteParameter> parameters = new List<SQLiteParameter>() { createParam("@id", DbType.Int64, id) };
 			string[] cardTypeResult;
-			errorMessage += execReadField(sql, path, parameters, out cardTypeResult, "id", "name", "parent_id", "context");
+			errorMessage += execReadField(sql, path, parameters, out cardTypeResult, "id", "name", "parent_id", "context", "color");
 
-			cardType = new CardType(cardTypeResult[0], cardTypeResult[1], cardTypeResult[2], (CardTypeContext)int.Parse(cardTypeResult[3]), 0);
+			cardType = new CardType(cardTypeResult[0], cardTypeResult[1], cardTypeResult[2], (CardTypeContext)int.Parse(cardTypeResult[3]), int.Parse(cardTypeResult[4]), 0);
 
 			// get fields
 			parameters.Clear();
@@ -845,10 +942,7 @@ namespace NotecardLib
 			while (!string.IsNullOrEmpty(parentID))
 			{
 				ancestry.Add(parentID);
-
-				string[] result;
-				errorMessage += execReadField(sql, path, createParam("@id", DbType.Int64, parentID), out result, "parent_id");
-				parentID = result[0];
+				errorMessage += execReadField(sql, path, createParam("@id", DbType.Int64, parentID), out parentID, "parent_id");
 			}
 
 			ancestry.Reverse();
@@ -869,49 +963,118 @@ namespace NotecardLib
 
 			string sql = "SELECT `id` FROM `card_type` WHERE `parent_id` IN (";
 
-			List<string> curList = new List<string>() { cardTypeID };
-			while (curList.Count > 0)
-			{
-				descendents.AddRange(curList);
-				string ids = string.Join(", ", curList);
-				curList.Clear();
+			StringBuilder ids = new StringBuilder();
+			ids.Append(cardTypeID);
+			bool hasChildren = true;
 
-				List<string[]> results;
-				errorMessage += execReadField((sql + ids + ");"), path, (List<SQLiteParameter>)null, out results, "id");
-				foreach (string[] result in results)
+			while (hasChildren)
+			{
+				List<string> results;
+				errorMessage += execReadField((sql + ids.ToString() + ");"), path, (List<SQLiteParameter>)null, out results, "id");
+				hasChildren = results.Count > 0;
+				foreach (string result in results)
 				{
-					curList.Add(result[0]);
+					descendents.Add(result);
+
+					ids.Append(",");
+					ids.Append(result);
 				}
 			}
 
 			return errorMessage;
 		}
 
-		/// <summary>Creates a new card.</summary>
-		/// <param name="cardTypeID">The database ID of the card type.</param>
+		/// <summary>Gets a card type and all of its descendents' database IDs.</summary>
+		/// <param name="cardTypeID">The parent card type.</param>
 		/// <param name="path">The path of the current database.</param>
-		/// <param name="card">The new card.</param>
+		/// <param name="descendents">The retrieved card types' database IDs.</param>
 		/// <returns>Any error messages.</returns>
-		public static string newCard(string cardTypeID, string path, out Card card)
+		public static string getCardTypeDescendents(string cardTypeID, string path, out string descendents)
 		{
 			string errorMessage = string.Empty;
 
-			CardType cardType;
-			errorMessage += getCardType(cardTypeID, path, out cardType);
-			errorMessage += newCard(cardType, path, out card);
+			string sql = "SELECT `id` FROM `card_type` WHERE `parent_id` IN (";
+
+			StringBuilder ids = new StringBuilder();
+			ids.Append(cardTypeID);
+			bool hasChildren = true;
+
+			while (hasChildren)
+			{
+				List<string> results;
+				errorMessage += execReadField((sql + ids.ToString() + ");"), path, (List<SQLiteParameter>)null, out results, "id");
+				hasChildren = results.Count > 0;
+				foreach (string result in results)
+				{
+					ids.Append(",");
+					ids.Append(result);
+				}
+			}
+
+			descendents = ids.ToString();
 
 			return errorMessage;
 		}
 
+		/// <summary>Gets the IDs and names of all card types.</summary>
+		/// <param name="path">The path of the current database.</param>
+		/// <param name="results">A list of two-dimensional arrays. [0] = ID; [1] = Name.</param>
+		/// <returns>Any error messages.</returns>
+		public static string getCardTypeIDsAndNames(string path, out List<string[]> results)
+		{
+			string errorMessage = string.Empty;
+
+			string sql = "SELECT `id`, `name` FROM `card_type` WHERE `context` = @context ORDER BY `name` ASC;";
+			errorMessage += execReadField(sql, path, new SQLiteParameter[] { createParam("@context", DbType.Int64, (int)CardTypeContext.Standalone) }, out results, "id", "name");
+
+			return errorMessage;
+		}
+
+		/// <summary>Gets the IDs and names of all fields in a card type.</summary>
+		/// <param name="cardTypeID">The database ID of the owning card type.</param>
+		/// <param name="path">The path of the current database.</param>
+		/// <param name="results">A list of two-dimensional arrays. [0] = ID; [1] = Name.</param>
+		/// <returns>Any error messages.</returns>
+		public static string getCardTypeFieldIDsAndNames(string cardTypeID, string path, out List<string[]> results)
+		{
+			string errorMessage = string.Empty;
+
+			string sql = "SELECT `id`, `name` FROM `card_type_field` WHERE `card_type_id` = @card_type_id ORDER BY `sort_order` ASC;";
+			errorMessage += execReadField(sql, path, createParam("@card_type_id", DbType.Int64, cardTypeID), out results, "id", "name");
+
+			return errorMessage;
+		}
+
+		/// <summary>Gets the IDs and names of all card types exept the specified card type and its descendents.</summary>
+		/// <param name="cardTypeID">The card type to ignore.</param>
+		/// <param name="path">The path of the current database.</param>
+		/// <param name="results">A list of two-dimensional arrays. [0] = ID; [1] = Name.</param>
+		/// <returns>Any error messages.</returns>
+		public static string getAllButDescendents(string cardTypeID, string path, out List<string[]> results)
+		{
+			string errorMessage = string.Empty;
+
+			string descendents;
+			errorMessage += getCardTypeDescendents(cardTypeID, path, out descendents);
+
+			string sql = "SELECT `id`, `name` FROM `card_type` WHERE `id` NOT IN (" + descendents + ");";
+			errorMessage += execReadField(sql, path, (IEnumerable<SQLiteParameter>)null, out results, "id", "name");
+
+			return errorMessage;
+		}
+
+		#endregion Card Types
+
+		#region Cards
+
 		/// <summary>Creates a new card.</summary>
-		/// <param name="cardType">The type of card.</param>
+		/// <param name="cardTypes">The type of card and its ancestors.</param>
 		/// <param name="path">The path of the current database.</param>
 		/// <param name="card">The new card.</param>
 		/// <returns>Any error messages.</returns>
-		public static string newCard(CardType cardType, string path, out Card card)
+		public static string newCard(List<CardType> cardTypes, string path, out string cardID)
 		{
 			string errorMessage = string.Empty;
-			card = null;
 
 			StringBuilder sql = new StringBuilder();
 			List<SQLiteParameter> parameters = new List<SQLiteParameter>();
@@ -920,16 +1083,9 @@ namespace NotecardLib
 			sql.Append(@"
 				INSERT INTO `card` (`card_type_id`) VALUES (@card_type_id);
 				SELECT LAST_INSERT_ROWID() AS `id`;");
-			parameters.Add(createParam("@card_type_id", DbType.Int64, cardType.ID));
+			parameters.Add(createParam("@card_type_id", DbType.Int64, cardTypes[cardTypes.Count - 1].ID));
 
-			string[] cardTypeResult;
-			errorMessage += execReadField(sql.ToString(), path, parameters, out cardTypeResult, "id");
-
-			string cardID = cardTypeResult[0];
-
-			// get parent card types
-			List<CardType> cardTypes;
-			errorMessage += getCardTypeAncestry(cardType, path, out cardTypes);
+			errorMessage += execReadField(sql.ToString(), path, parameters, out cardID, "id");
 
 			// insert fields
 			StringBuilder fieldText = new StringBuilder();
@@ -981,9 +1137,6 @@ namespace NotecardLib
 				parameters.Add(createParam("@card_id", DbType.Int64, cardID));
 				errorMessage += execNonQuery(sql.ToString(), path, parameters);
 			}
-
-			// get saved card
-			errorMessage += getCard(cardID, path, out card);
 
 			return errorMessage;
 		}
@@ -1069,8 +1222,8 @@ namespace NotecardLib
 			return errorMessage;
 		}
 
-		/// <summary>Saves a card field.</summary>
-		/// <param name="value">The value to save to the card field.</param>
+		/// <summary>Saves a card text field.</summary>
+		/// <param name="value">The value to save to the card text field.</param>
 		/// <param name="cardID">The card's database ID.</param>
 		/// <param name="cardTypeFieldID">The card type field's database ID.</param>
 		/// <param name="path">The path of the current database.</param>
@@ -1081,7 +1234,31 @@ namespace NotecardLib
 
 			string sql = "UPDATE `field_text` SET `value` = @value WHERE `card_id` = @card_id AND `card_type_field_id` = @card_type_field_id;";
 
-			List<SQLiteParameter> parameters = new List<SQLiteParameter>()
+			SQLiteParameter[] parameters = new SQLiteParameter[]
+			{
+				createParam("@value", DbType.String, value),
+				createParam("@card_id", DbType.Int64, cardID),
+				createParam("@card_type_field_id", DbType.Int64, cardTypeFieldID)
+			};
+
+			errorMessage += execNonQuery(sql, path, parameters);
+
+			return errorMessage;
+		}
+
+		/// <summary>Saves a card card field.</summary>
+		/// <param name="value">The value to save to the card card field.</param>
+		/// <param name="cardID">The card's database ID.</param>
+		/// <param name="cardTypeFieldID">The card type field's database ID.</param>
+		/// <param name="path">The path of the current database.</param>
+		/// <returns>Any error messages.</returns>
+		public static string saveCardCardField(string value, string cardID, string cardTypeFieldID, string path)
+		{
+			string errorMessage = string.Empty;
+
+			string sql = "UPDATE `field_card` SET `value` = @value WHERE `card_id` = @card_id AND `card_type_field_id` = @card_type_field_id;";
+
+			SQLiteParameter[] parameters = new SQLiteParameter[]
 			{
 				createParam("@value", DbType.String, value),
 				createParam("@card_id", DbType.Int64, cardID),
@@ -1097,27 +1274,14 @@ namespace NotecardLib
 		/// <param name="id">The database id of the card.</param>
 		/// <param name="path">The path of the current database.</param>
 		/// <param name="card">The card.</param>
+		/// <param name="cardTypes">The card's card type and its ancestors.</param>
 		/// <returns>Any error messages.</returns>
-		public static string getCard(string id, string path, out Card card)
+		public static string getCard(string id, string path, out Card card, List<CardType> cardTypes)
 		{
 			string errorMessage = string.Empty;
-			card = null;
+			card = new Card(cardTypes[cardTypes.Count - 1], id);
 
-			// get base card data
-			List<SQLiteParameter> parameters = new List<SQLiteParameter>() { createParam("@card_id", DbType.Int64, id) };
-			string sql = "SELECT `card_type_id` FROM `card` WHERE `id` = @card_id;";
-
-			string[] cardResult;
-			errorMessage += execReadField(sql, path, parameters, out cardResult, "card_type_id");
-
-			// get field data
-			CardType cardType;
-			errorMessage += getCardType(cardResult[0], path, out cardType);
-			card = new Card(cardType, id);
-
-			// get parent card types
-			List <CardType> cardTypes;
-			errorMessage += getCardTypeAncestry(cardType, path, out cardTypes);
+			List<SQLiteParameter> parameters = new List<SQLiteParameter>();
 
 			int pastFields = 0;
 			foreach (CardType ct in cardTypes)
@@ -1155,8 +1319,8 @@ namespace NotecardLib
 				// get text fields
 				if (hasTextField)
 				{
-					List<string[]> textFieldResult;
-					sql = @"
+					List<string> textFieldResult;
+					string sql = @"
 					SELECT `ft`.`value`, `ctf`.`card_type_id`
 					FROM `field_text` `ft`
 						JOIN `card_type_field` `ctf` ON `ctf`.`id` = `ft`.`card_type_field_id`
@@ -1170,7 +1334,7 @@ namespace NotecardLib
 					{
 						if (ct.Fields[i].FieldType == DataType.Text)
 						{
-							card.Fields[pastFields + i] = textFieldResult[j][0];
+							card.Fields[pastFields + i] = textFieldResult[j];
 							j++;
 						}
 					}
@@ -1179,8 +1343,8 @@ namespace NotecardLib
 				// get card fields
 				if (hasCardField)
 				{
-					List<string[]> cardFieldResult;
-					sql = @"
+					List<string> cardFieldResult;
+					string sql = @"
 					SELECT `fc`.*
 					FROM `field_card` `fc`
 						JOIN `card_type_field` `ctf` ON `ctf`.`id` = `fc`.`card_type_field_id`
@@ -1194,7 +1358,7 @@ namespace NotecardLib
 					{
 						if (ct.Fields[i].FieldType == DataType.Card)
 						{
-							card.Fields[pastFields + i] = cardFieldResult[j][0];
+							card.Fields[pastFields + i] = cardFieldResult[j];
 							j++;
 						}
 					}
@@ -1204,8 +1368,8 @@ namespace NotecardLib
 				if (hasListField)
 				{
 					List<string[]> listFieldResult;
-					sql = @"
-					SELECT `fl`.*, `ctf`.`sort_order` AS `ctf_sort_order`
+					string sql = @"
+					SELECT `fl`.`value`, `ctf`.`sort_order` AS `ctf_sort_order`
 					FROM `field_list` `fl`
 						JOIN `card_type_field` `ctf` ON `ctf`.`id` = `fl`.`card_type_field_id`
 					WHERE `fl`.`card_id` = @card_id
@@ -1226,36 +1390,53 @@ namespace NotecardLib
 
 							if (items.Count > 0)
 							{
-								do
-								{
-									fieldIndex++;
-								} while (ct.Fields[fieldIndex].FieldType != DataType.List);
-
 								card.Fields[pastFields + fieldIndex] = items;
 								items = new List<Card>();
 							}
+
+							do
+							{
+								fieldIndex++;
+							} while (ct.Fields[fieldIndex].FieldType != DataType.List);
 						}
 
 						// add list item
 						Card listCard;
-						errorMessage += getCard(listFieldResult[i][0], path, out listCard);
+						errorMessage += getCard(listFieldResult[i][0], path, out listCard, new List<CardType>() { ct.Fields[fieldIndex].ListType });
 						items.Add(listCard);
 					}
 
 					// add last items
 					if (items.Count > 0)
-					{
-						do
-						{
-							fieldIndex++;
-						} while (ct.Fields[fieldIndex].FieldType != DataType.List);
-
 						card.Fields[pastFields + fieldIndex] = items;
+
+					// fill empty lists
+					for (int i = 0; i < ct.Fields.Count; i++)
+					{
+						fieldIndex = pastFields + i;
+						if (ct.Fields[i].FieldType == DataType.List && card.Fields[fieldIndex] == null)
+							card.Fields[fieldIndex] = new List<Card>();
 					}
 				}
 
 				pastFields += ct.Fields.Count;
 			}
+
+			return errorMessage;
+		}
+
+		/// <summary>Gets the database ID of a card's card type.</summary>
+		/// <param name="id">The database ID of the card.</param>
+		/// <param name="path">The path of the current database.</param>
+		/// <param name="cardTypeID">The database ID of the card type.</param>
+		/// <returns>Any error messages.</returns>
+		public static string getCardCardTypeID(string id, string path, out string cardTypeID)
+		{
+			string errorMessage = string.Empty;
+
+			string sql = "SELECT `card_type_id` FROM `card` WHERE `id` = @card_id;";
+
+			errorMessage += execReadField(sql, path, createParam("@card_id", DbType.Int64, id), out cardTypeID, "card_type_id");
 
 			return errorMessage;
 		}
@@ -1269,8 +1450,8 @@ namespace NotecardLib
 		{
 			string sql = "SELECT `id` FROM `card` WHERE `id` = @id LIMIT 1;";
 
-			List<string[]> result;
-			errorMessage += execReadField(sql, path, createParam("@id", DbType.Int64, id), out result);
+			List<string> result;
+			errorMessage += execReadField(sql, path, createParam("@id", DbType.Int64, id), out result, "id");
 
 			return result.Count > 0;
 		}
@@ -1280,7 +1461,7 @@ namespace NotecardLib
 		/// <param name="cardTypeField">The list to add to.</param>
 		/// <param name="path">The path of the current database.</param>
 		/// <returns>Any error messages.</returns>
-		public static string newListItem(Card card, CardTypeField cardTypeField, string path)
+		public static string newListItem(Card card, CardTypeField cardTypeField, string path, out string id)
 		{
 			string errorMessage = string.Empty;
 
@@ -1290,70 +1471,37 @@ namespace NotecardLib
 			parameters.Add(createParam("@card_id", DbType.Int64, card.ID));
 			parameters.Add(createParam("@card_type_field_id", DbType.Int64, cardTypeField.ID));
 
-			string[] orderResult;
+			string orderResult;
 			errorMessage += execReadField(sql, path, parameters, out orderResult, "next_sort_order");
 
 			// add new card
-			Card listItem;
-			errorMessage += newCard(cardTypeField.ListType, path, out listItem);
+			errorMessage += newCard(new List<CardType>() { cardTypeField.ListType }, path, out id);
 
 			// add field_list record
 			sql = @"
 				INSERT INTO `field_list` (`card_id`, `card_type_field_id`, `value`, `sort_order`)
-				VALUES (@card_id, @card_type_field_id, @value, @sort_order);";
+				VALUES (@card_id, @card_type_field_id, @value, @sort_order);
 
-			parameters.Add(createParam("@value", DbType.Int64, listItem.ID));
-			parameters.Add(createParam("@sort_order", DbType.Int64, orderResult[0]));
+				INSERT INTO `arrangement_card` (`arrangement_id`, `card_id`)
+				SELECT `arrangement_id`, @value FROM `arrangement_card` WHERE `card_id` = @card_id;
+
+				INSERT INTO `arrangement_card_list` (`arrangement_card_id`)
+				SELECT `id` FROM `arrangement_card` WHERE `card_id` = @value;
+
+				INSERT INTO `arrangement_field_text` (`arrangement_card_id`, `card_type_field_id`)
+				SELECT `ac`.`id`, `ctf`.`id`
+				FROM `card_type_field` `ctf`
+					JOIN `card_type` `ct` ON `ct`.`id` = `ctf`.`card_type_id`
+					JOIN `card` `c` ON `c`.`card_type_id` = `ct`.`id`
+					JOIN `arrangement_card` `ac` ON `ac`.`card_id` = `c`.`id`
+				WHERE `c`.`id` = @value
+					AND `ctf`.`field_type` = @text_type;";
+
+			parameters.Add(createParam("@value", DbType.Int64, id));
+			parameters.Add(createParam("@sort_order", DbType.Int64, orderResult));
+			parameters.Add(createParam("@text_type", DbType.Int64, (int)DataType.Text));
 
 			errorMessage += execNonQuery(sql, path, parameters);
-
-			return errorMessage;
-		}
-
-		/// <summary>Gets the IDs and names of all card types.</summary>
-		/// <param name="path">The path of the current database.</param>
-		/// <param name="results">A list of two-dimensional arrays. [0] = ID; [1] = Name.</param>
-		/// <returns>Any error messages.</returns>
-		public static string getCardTypeIDsAndNames(string path, out List<string[]> results)
-		{
-			string errorMessage = string.Empty;
-
-			string sql = "SELECT `id`, `name` FROM `card_type` WHERE `context` = @context ORDER BY `name` ASC;";
-			errorMessage += execReadField(sql, path, new SQLiteParameter[] { createParam("@context", DbType.Int64, (int)CardTypeContext.Standalone) }, out results, "id", "name");
-
-			return errorMessage;
-		}
-
-		/// <summary>Gets the IDs and names of all fields in a card type.</summary>
-		/// <param name="cardTypeID">The database ID of the owning card type.</param>
-		/// <param name="path">The path of the current database.</param>
-		/// <param name="results">A list of two-dimensional arrays. [0] = ID; [1] = Name.</param>
-		/// <returns>Any error messages.</returns>
-		public static string getCardTypeFieldIDsAndNames(string cardTypeID, string path, out List<string[]> results)
-		{
-			string errorMessage = string.Empty;
-
-			string sql = "SELECT `id`, `name` FROM `card_type_field` WHERE `card_type_id` = @card_type_id ORDER BY `sort_order` ASC;";
-			errorMessage += execReadField(sql, path, createParam("@card_type_id", DbType.Int64, cardTypeID), out results, "id", "name");
-
-			return errorMessage;
-		}
-
-		/// <summary>Gets the IDs and names of all card types exept the specified card type and its descendents.</summary>
-		/// <param name="cardTypeID">The card type to ignore.</param>
-		/// <param name="path">The path of the current database.</param>
-		/// <param name="results">A list of two-dimensional arrays. [0] = ID; [1] = Name.</param>
-		/// <returns>Any error messages.</returns>
-		public static string getAllButDescendents(string cardTypeID, string path, out List<string[]> results)
-		{
-			string errorMessage = string.Empty;
-
-			List<string> temp;
-			errorMessage += getCardTypeDescendents(cardTypeID, path, out temp);
-			string descendents = string.Join(", ", temp);
-
-			string sql = "SELECT `id`, `name` FROM `card_type` WHERE `id` NOT IN (" + descendents + ");";
-			errorMessage += execReadField(sql, path, (IEnumerable<SQLiteParameter>)null, out results, "id", "name");
 
 			return errorMessage;
 		}
@@ -1362,7 +1510,7 @@ namespace NotecardLib
 		/// <param name="query">The search query.</param>
 		/// <param name="path">The path of the current database.</param>
 		/// <returns>Any error messages.</returns>
-		public static string search(string query, string path, out string[] cardIDs)
+		public static string search(string query, string cardTypes, string path, out string[] cardIDs)
 		{
 			// TODO: sort by relevance (number of keyword matches)
 			string errorMessage = string.Empty;
@@ -1379,21 +1527,37 @@ namespace NotecardLib
 
 			if (sql.Length > 0)
 			{
-				sql.Insert(0, @"
+				if (string.IsNullOrEmpty(cardTypes))
+				{
+					sql.Insert(0, @"
 					SELECT DISTINCT COALESCE(`fl`.`card_id`, `c`.`id`) AS `id`
 					FROM `field_text` `ft`
 						JOIN `card` `c` ON `c`.`id` = `ft`.`card_id`
 						LEFT JOIN `field_list` `fl` ON `fl`.`value` = `c`.`id`
 					WHERE ");
+				}
+				else
+				{
+					sql.Insert(0, @"
+					SELECT DISTINCT COALESCE(`c2`.`id`, `c`.`id`) AS `id`
+					FROM `field_text` `ft`
+						JOIN `card` `c` ON `c`.`id` = `ft`.`card_id`
+						LEFT JOIN `field_list` `fl` ON `fl`.`value` = `c`.`id`
+						LEFT JOIN `card` `c2` ON `c2`.`id` = `fl`.`card_id`
+					WHERE (`c`.`card_type_id` IN (" + cardTypes + @")
+						OR `c2`.`card_type_id` IN (" + cardTypes + @"))
+						AND ");
+				}
+
 				sql.Append(";");
 
-				List<string[]> results;
+				List<string> results;
 				errorMessage += execReadField(sql.ToString(), path, (SQLiteParameter)null, out results, "id");
 
 				cardIDs = new string[results.Count];
 				for (int i = 0; i < cardIDs.Length; i++)
 				{
-					cardIDs[i] = results[i][0];
+					cardIDs[i] = results[i];
 				}
 			}
 
@@ -1410,24 +1574,428 @@ namespace NotecardLib
 			string errorMessage = string.Empty;
 
 			string sql = @"
-				SELECT `tf`.`value`
-				FROM `field_text` `tf`
-					JOIN `card_type_field` `ctf` ON `ctf`.`id` = `tf`.`card_type_field_id`
+				SELECT `ft`.`value`
+				FROM `field_text` `ft`
+					JOIN `card_type_field` `ctf` ON `ctf`.`id` = `ft`.`card_type_field_id`
+					JOIN `card_type` `ct` ON `ct`.`id` = `ctf`.`card_type_id` AND `ct`.`parent_id` IS NULL
 					LEFT JOIN `card_type_field` `ctf2` ON `ctf2`.`card_type_id` = `ctf`.`card_type_id` AND `ctf2`.`sort_order` < `ctf`.`sort_order`
 				WHERE `ctf2`.`id` IS NULL
-					AND `tf`.`card_id` IN (" + string.Join(",", ids) + ");";
+					AND `ft`.`card_id` IN (" + string.Join(",", ids) + ");";
 
-			List<string[]> temp;
+			List<string> temp;
 			errorMessage += execReadField(sql, path, (IEnumerable<SQLiteParameter>)null, out temp, "value");
 
 			names = new string[temp.Count];
 			for (int i = 0; i < names.Length; i++)
 			{
-				names[i] = temp[i][0];
+				names[i] = temp[i];
 			}
 
 			return errorMessage;
 		}
+
+		/// <summary>Deletes a card from the database.</summary>
+		/// <param name="cardID">The card's database ID.</param>
+		/// <param name="path">The path of the current database.</param>
+		/// <returns>Any error messages.</returns>
+		public static string deleteCard(string cardID, string path)
+		{
+			string errorMessage = string.Empty;
+
+			string sql = "DELETE FROM `card` WHERE `id` = @id;";
+
+			errorMessage += execNonQuery(sql, path, createParam("@id", DbType.Int64, cardID));
+
+			return errorMessage;
+		}
+
+		#endregion Cards
+
+		#region Arrangements
+
+		/// <summary>Adds a new arrangement.</summary>
+		/// <param name="name">The name of the new arrangmenet.</param>
+		/// <param name="path">The path of the current database.</param>
+		/// <param name="id">The database ID of the new arrangement.</param>
+		/// <param name="newName">The name if the new arrangement (same as name unless name is null).</param>
+		/// <returns>Any error messages.</returns>
+		public static string addArrangement(string name, string path, out string id, out string newName)
+		{
+			string errorMessage = string.Empty;
+			
+			// get new name
+			if (string.IsNullOrEmpty(name))
+			{
+				string nameSql = "SELECT `name` FROM `arrangement` WHERE `name` LIKE @name;";
+
+				List<string> names;
+				errorMessage += execReadField(nameSql, path, createParam("@name", DbType.String, NewArrangementNameLike), out names, "name");
+
+				name = findNextName(names, NewArrangementName, NewArrangementNameStart, NewArrangementNameEnd, NewArrangementNameIndex);
+			}
+
+			string sql = @"
+				INSERT INTO `arrangement` (`name`) VALUES (@name);
+				SELECT LAST_INSERT_ROWID() AS `id`;";
+
+			errorMessage += execReadField(sql, path, createParam("@name", DbType.String, name), out id, "id");
+
+			newName = name;
+
+			return errorMessage;
+		}
+
+		/// <summary>Removes an arrangement from the database.</summary>
+		/// <param name="arrangementID">The database ID of the arrangement.</param>
+		/// <param name="path">The path of the current database.</param>
+		/// <returns>Any error messages.</returns>
+		public static string removeArrangement(string arrangementID, string path)
+		{
+			string errorMessage = string.Empty;
+
+			string sql = "DELETE FROM `arrangement` WHERE `id` = @id;";
+			errorMessage += execNonQuery(sql, path, createParam("@id", DbType.Int64, arrangementID));
+
+			return errorMessage;
+		}
+
+		/// <summary>Gets the IDs and names of all arrangements.</summary>
+		/// <param name="path">The path of the current database.</param>
+		/// <param name="results">The results.</param>
+		/// <returns>Any error messages.</returns>
+		public static string getArrangementIDsAndNames(string path, out List<string[]> results)
+		{
+			string errorMessage = string.Empty;
+
+			string sql = "SELECT `id`, `name` FROM `arrangement`;";
+
+			errorMessage += execReadField(sql, path, (IEnumerable<SQLiteParameter>)null, out results, "id", "name");
+
+			return errorMessage;
+		}
+
+		/// <summary>Retrieves an arrangement from the database.</summary>
+		/// <param name="arrangementID">The database ID of the arrangement.</param>
+		/// <param name="path">The path of the current database.</param>
+		/// <param name="cards">The cards in the arrangement.</param>
+		/// <returns>Any error messages.</returns>
+		public static string getArrangement(string arrangementID, string path, out ArrangementCardStandalone[] cards)
+		{
+			string errorMessage = string.Empty;
+
+			string sql = @"
+				SELECT `ac`.`id`, `ac`.`card_id`, `acs`.`x`, `acs`.`y`, `acs`.`width`
+				FROM `arrangement_card` `ac`
+					JOIN `arrangement_card_standalone` `acs` ON `acs`.`arrangement_card_id` = `ac`.`id`
+				WHERE `ac`.`arrangement_id` = @id;";
+
+			List<string[]> results;
+			errorMessage += execReadField(sql, path, createParam("@id", DbType.Int64, arrangementID), out results, "id", "card_id", "x", "y", "width");
+
+			cards = new ArrangementCardStandalone[results.Count];
+
+			SQLiteParameter[] listParams = new SQLiteParameter[]
+			{
+				null,
+				createParam("@arrangement_id", DbType.Int64, arrangementID)
+			};
+
+			for (int i = 0; i < results.Count; i++)
+			{
+				// build arrangement card
+				string[] result = results[i];
+				ArrangementCardStandalone card = new ArrangementCardStandalone(result[0], result[1], null, int.Parse(result[2]), int.Parse(result[3]), int.Parse(result[4]));
+
+				// get text fields
+				card.TextFields = getArrangementCardTextFields(card.ID, path, ref errorMessage);
+
+				// get list items
+				sql = @"
+					SELECT `ac`.`id`, `fl`.`card_id`
+					FROM `field_list` `fl`
+						JOIN `card_type_field` `ctf` ON `ctf`.`id` = `fl`.`card_type_field_id`
+						JOIN `arrangement_card` `ac` ON `ac`.`card_id` = `fl`.`value`
+						JOIN `arrangement_card_list` `acl` ON `acl`.`arrangement_card_id` = `ac`.`id`
+					WHERE `fl`.`card_id` = @card_id
+						AND `ac`.`arrangement_id` = @arrangement_id
+					ORDER BY `ctf`.`sort_order`, `fl`.`sort_order`;";
+
+				listParams[0] = createParam("@card_id", DbType.Int64, card.CardID);
+				List<string[]> listFields;
+				errorMessage += execReadField(sql, path, listParams, out listFields, "id", "card_id");
+
+				if (listFields.Count > 0)
+				{
+					card.ListItems = new ArrangementCardList[listFields.Count];
+
+					for (int listIndex = 0; listIndex < listFields.Count; listIndex++)
+					{
+						string[] f = listFields[listIndex];
+						card.ListItems[listIndex] = new ArrangementCardList(f[0], f[1], getArrangementCardTextFields(f[0], path, ref errorMessage));
+					}
+
+				}
+
+				// finish card
+				cards[i] = card;
+			}
+
+			return errorMessage;
+		}
+
+		/// <summary>Retrieves the arrangement card text field settings.</summary>
+		/// <param name="arrangementCardID">The database ID of the owning arrangement card.</param>
+		/// <param name="path">The path of the current database.</param>
+		/// <param name="fields">The text field settings.</param>
+		/// <param name="errorMessage">Any error messages.</param>
+		/// <returns>The text field settings.</returns>
+		private static ArrangementFieldText[] getArrangementCardTextFields(string arrangementCardID, string path, ref string errorMessage)
+		{
+			string sql = @"
+				SELECT `ctf`.`id`, `aft`.`height_increase`
+				FROM `arrangement_field_text` `aft`
+					JOIN `card_type_field` `ctf` ON `ctf`.`id` = `aft`.`card_type_field_id`
+				WHERE `aft`.`arrangement_card_id` = @arrangement_card_id;";
+			List<string[]> textFields;
+			errorMessage += execReadField(sql, path, createParam("@arrangement_card_id", DbType.Int64, arrangementCardID), out textFields, "id", "height_increase");
+
+			ArrangementFieldText[] fields = new ArrangementFieldText[textFields.Count];
+			for (int j = 0; j < textFields.Count; j++)
+			{
+				fields[j] = new ArrangementFieldText(textFields[j][0], int.Parse(textFields[j][1]));
+			}
+
+			return fields;
+		}
+
+		/// <summary>Gets the database ID of an arrangement card.</summary>
+		/// <param name="arrangementID">The database ID of the arrangement.</param>
+		/// <param name="cardID">The database ID of the card.</param>
+		/// <param name="path">The path of the current database.</param>
+		/// <param name="arrangementCardID">The database ID of the arrangement card.</param>
+		/// <returns>Any error messages.</returns>
+		public static string getArrangementCardID(string arrangementID, string cardID, string path, out string arrangementCardID)
+		{
+			string errorMessage = string.Empty;
+
+			string sql = "SELECT `id` FROM `arrangement_card` WHERE `arrangement_id` = @arrangement_id AND `card_id` = @card_id;";
+
+			SQLiteParameter[] parameters = new SQLiteParameter[]
+			{
+				createParam("@arrangement_id", DbType.Int64, arrangementID),
+				createParam("@card_id", DbType.Int64, cardID)
+			};
+
+			errorMessage += execReadField(sql, path, parameters, out arrangementCardID, "id");
+
+			return errorMessage;
+		}
+
+		/// <summary>Gets an arrangement list card's database ID.</summary>
+		/// <param name="owningArrCardID">The arrangement card ID of the owning card.</param>
+		/// <param name="cardID">The database ID of the list item.</param>
+		/// <param name="path">The path of the current database.</param>
+		/// <param name="errorMessage">Any error messages.</param>
+		/// <returns>The arrangement list card's database ID.</returns>
+		public static string getArrangementListCardID(string owningArrCardID, string cardID, string path, ref string errorMessage)
+		{
+			string sql = @"
+				SELECT `ac2`.`id`
+				FROM `arrangement_card` `ac`
+					JOIN `arrangement_card` `ac2` ON `ac2`.`arrangement_id` = `ac`.`arrangement_id`
+				WHERE `ac2`.`card_id` = @card_id
+					AND `ac`.`id` = @owner_id;";
+
+			SQLiteParameter[] parameters = new SQLiteParameter[]
+			{
+				createParam("@owner_id", DbType.Int64, owningArrCardID),
+				createParam("@card_id", DbType.Int64, cardID)
+			};
+
+			string result;
+			errorMessage += execReadField(sql, path, parameters, out result, "id");
+
+			return result;
+		}
+
+		/// <summary>Gets a list of all arrangement list card IDs within a specific arrangement card.</summary>
+		/// <param name="owningArrCardID">The arrangement card ID of the owning card.</param>
+		/// <param name="path">The path of the current database.</param>
+		/// <param name="errorMessage">Any error messages.</param>
+		/// <returns>A list of all arrangement list card IDs within a specific arrangement card.</returns>
+		public static List<string> getArrangementListCardIDs(string owningArrCardID, string path, ref string errorMessage)
+		{
+			string sql = @"
+				SELECT `ac2`.`id`
+				FROM `arrangement_card` `ac`
+					JOIN `field_list` `fl` ON `fl`.`card_id` = `ac`.`card_id`
+					JOIN `arrangement_card` `ac2` ON `ac2`.`card_id` = `fl`.`value` AND `ac2`.`arrangement_id` = `ac`.`arrangement_id`
+				WHERE `ac`.`id` = @owner_id
+				ORDER BY `fl`.`sort_order` ASC;";
+
+			List<string> ids;
+			errorMessage += execReadField(sql, path, createParam("@owner_id", DbType.Int64, owningArrCardID), out ids, "id");
+
+			return ids;
+		}
+
+		/// <summary>Sets a card's position and size in an arrangement.</summary>
+		/// <param name="arrangementID">The database ID of the arrangement.</param>
+		/// <param name="cardID">The database ID of the card.</param>
+		/// <param name="x">The x-coordinate of the card in the arrangement.</param>
+		/// <param name="y">The y-coordinate of the card in the arrangement.</param>
+		/// <param name="width">The width of the card in the arrangement.</param>
+		/// <param name="path">The path of the current database.</param>
+		/// <returns>Any error messages.</returns>
+		public static string setCardPosAndSize(string arrangementID, string cardID, int x, int y, int width, string path)
+		{
+			string errorMessage = string.Empty;
+
+			string sql = "UPDATE `arrangement_card_standalone` SET `x` = @x, `y` = @y, `width` = @width WHERE `arrangement_card_id` = (SELECT `id` FROM `arrangement_card` WHERE `arrangement_id` = @arrangement_id AND `card_id` = @card_id);";
+
+			SQLiteParameter[] parameters = new SQLiteParameter[]
+			{
+				createParam("@arrangement_id", DbType.Int64, arrangementID),
+				createParam("@card_id", DbType.Int64, cardID),
+				createParam("@x", DbType.Int64, x),
+				createParam("@y", DbType.Int64, y),
+				createParam("@width", DbType.Int64, width)
+			};
+
+			errorMessage += execNonQuery(sql, path, parameters);
+
+			return errorMessage;
+		}
+
+		/// <summary>Sets a text field's height increase for an arrangement.</summary>
+		/// <param name="arrangementCardID">The arrangement card's database ID.</param>
+		/// <param name="cardTypeFieldID">The card type field's database ID.</param>
+		/// <param name="heightIncrease">The text field's height increase.</param>
+		/// <param name="path">The current path of the database.</param>
+		/// <returns>Any error messages.</returns>
+		public static string setFieldTextHeightIncrease(string arrangementCardID, string cardTypeFieldID, int heightIncrease, string path)
+		{
+			string errorMessage = string.Empty;
+
+			string sql = "UPDATE `arrangement_field_text` SET `height_increase` = @height_increase WHERE `card_type_field_id` = @card_type_field_id AND `arrangement_card_id` = @arrangement_card_id;";
+
+			errorMessage += execNonQuery(sql, path,
+				createParam("@arrangement_card_id", DbType.Int64, arrangementCardID),
+				createParam("@card_type_field_id", DbType.Int64, cardTypeFieldID),
+				createParam("@height_increase", DbType.Int64, heightIncrease));
+
+			return errorMessage;
+		}
+
+		/// <summary>Adds a card to an arrangement.</summary>
+		/// <param name="arrangementID">The database ID of the arrangement.</param>
+		/// <param name="cardID">The database ID of the card.</param>
+		/// <param name="x">The x-coordinate of the card in the arrangement.</param>
+		/// <param name="y">The y-coordinate of the card in the arrangement.</param>
+		/// <param name="width">The width of the card in the arrangement.</param>
+		/// <param name="path">The path of the current database.</param>
+		/// <param name="id">The database id of the arrangement card.</param>
+		/// <returns>Any error messages.</returns>
+		public static string arrangementAddCard(string arrangementID, string cardID, int x, int y, int width, string path, out string id)
+		{
+			string errorMessage = string.Empty;
+
+			string sql = @"
+				INSERT INTO `arrangement_card` (`arrangement_id`, `card_id`)
+				VALUES (@arrangement_id, @card_id);
+
+				CREATE TEMPORARY TABLE `ac_id`(`id` INTEGER PRIMARY KEY);
+				INSERT INTO `ac_id`
+				VALUES (LAST_INSERT_ROWID());
+
+				INSERT INTO `arrangement_card_standalone` (`arrangement_card_id`, `x`, `y`, `width`)
+				SELECT `id`, @x, @y, @width FROM `ac_id`;
+
+				INSERT INTO `arrangement_field_text` (`arrangement_card_id`, `card_type_field_id`)
+				SELECT `ac_id`.`id`, `ctf`.`id` FROM `card_type_field` `ctf` JOIN `card_type` `ct` ON `ct`.`id` = `ctf`.`card_type_id` JOIN `card` `c` ON `c`.`card_type_id` = `ct`.`id` JOIN `ac_id` WHERE `c`.`id` = @card_id AND `ctf`.`field_type` = @text_type;
+
+				INSERT INTO `arrangement_card` (`arrangement_id`, `card_id`)
+				SELECT @arrangement_id, `value` FROM `field_list` `fl` WHERE `fl`.`card_id` = @card_id;
+
+				INSERT INTO `arrangement_card_list` (`arrangement_card_id`)
+				SELECT `ac`.`id`
+				FROM `arrangement_card` `ac`
+					JOIN `field_list` `fl` ON `fl`.`value` = `ac`.`card_id`
+				WHERE `arrangement_id` = @arrangement_id
+					AND `fl`.`card_id` = @card_id;
+
+				SELECT `id` FROM `ac_id`;";
+
+			SQLiteParameter[] parameters = new SQLiteParameter[]
+			{
+				createParam("@arrangement_id", DbType.Int64, arrangementID),
+				createParam("@card_id", DbType.Int64, cardID),
+				createParam("@x", DbType.Int64, x),
+				createParam("@y", DbType.Int64, y),
+				createParam("@width", DbType.Int64, width),
+				createParam("@text_type", DbType.Int64, (int)DataType.Text)
+			};
+
+			errorMessage += execReadField(sql, path, parameters, out id, "id");
+
+			return errorMessage;
+		}
+
+		/// <summary>Removes a card from an arrangement.</summary>
+		/// <param name="arrangementID">The database ID of the arrangement.</param>
+		/// <param name="cardID">The database ID of the card.</param>
+		/// <param name="path">The path of the current database.</param>
+		/// <returns>Any error messages.</returns>
+		public static string arrangementRemoveCard(string arrangementID, string cardID, string path)
+		{
+			string errorMessage = string.Empty;
+
+			string sql = @"
+				DELETE FROM `arrangement_card`
+				WHERE `arrangement_id` = @arrangement_id
+					AND `card_id` IN (
+						SELECT @card_id
+
+						UNION ALL
+
+						SELECT `value`
+						FROM `field_list`
+						WHERE `card_id` = @card_id);";
+
+			SQLiteParameter[] parameters = new SQLiteParameter[]
+			{
+				createParam("@arrangement_id", DbType.Int64, arrangementID),
+				createParam("@card_id", DbType.Int64, cardID)
+			};
+
+			errorMessage += execNonQuery(sql, path, parameters);
+
+			return errorMessage;
+		}
+
+		/// <summary>Changes an arrangement's name.</summary>
+		/// <param name="arrangementID">The database ID of the arrangement.</param>
+		/// <param name="newName">The arrangement's new name.</param>
+		/// <param name="path">The path of the current database.</param>
+		/// <returns>Any error messages.</returns>
+		public static string arrangementChangeName(string arrangementID, string newName, string path)
+		{
+			string errorMessage = string.Empty;
+
+			string sql = "UPDATE `arrangement` SET `name` = @name WHERE `id` = @id;";
+
+			SQLiteParameter[] parameters = new SQLiteParameter[]
+			{
+				createParam("@id", DbType.Int64, arrangementID),
+				createParam("@name", DbType.String, newName)
+			};
+
+			errorMessage += execNonQuery(sql, path, parameters);
+
+			return errorMessage;
+		}
+
+		#endregion Arrangements
 
 		#region DB functions
 
@@ -1474,7 +2042,6 @@ namespace NotecardLib
 
 						cmd.ExecuteNonQuery();
 					}
-
 				}
 			}
 			catch (Exception ex)
@@ -1535,6 +2102,68 @@ namespace NotecardLib
 								{
 									result[i] = reader[fieldName[i]].ToString();
 								}
+							}
+							else
+							{
+								errorMessage += "Field `" + fieldName + "` was empty.";
+							}
+						}
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				errorMessage += ex.Message;
+			}
+
+			return errorMessage;
+		}
+
+		/// <summary>Executes a SQL string and returns the requested value.</summary>
+		/// <param name="sql">The SQL to execute.</param>
+		/// <param name="path">The path of the database to access.</param>
+		/// <param name="parameter">A parameter used by the SQL string.</param>
+		/// <param name="result">The return value.</param>
+		/// <param name="fieldName">The name of the field to return.</param>
+		/// <returns>Any error messages.</returns>
+		public static string execReadField(string sql, string path, SQLiteParameter parameter, out string result, string fieldName)
+		{
+			return execReadField(sql, path, new SQLiteParameter[] { parameter }, out result, fieldName);
+		}
+
+		/// <summary>Executes an SQL string and returns the requested value.</summary>
+		/// <param name="sql">The SQL to execute.</param>
+		/// <param name="path">The path of the database to access.</param>
+		/// <param name="parameters">Any parameters used by the SQL string.</param>
+		/// <param name="result">The return value.</param>
+		/// <param name="fieldName">The name of the field to return.</param>
+		/// <returns>Any error messages.</returns>
+		public static string execReadField(string sql, string path, IEnumerable<SQLiteParameter> parameters, out string result, string fieldName)
+		{
+			string errorMessage = string.Empty;
+			result = null;
+
+			try
+			{
+				using (SQLiteConnection con = new SQLiteConnection(genConnectionString(path)))
+				{
+					con.Open();
+
+					using (SQLiteCommand cmd = new SQLiteCommand("BEGIN;\n" + sql + "\nCOMMIT;", con))
+					{
+						if (parameters != null)
+						{
+							foreach (SQLiteParameter p in parameters)
+							{
+								cmd.Parameters.Add(p);
+							}
+						}
+
+						using (SQLiteDataReader reader = cmd.ExecuteReader())
+						{
+							if (reader.Read())
+							{
+								result = reader[fieldName].ToString();
 							}
 							else
 							{
@@ -1618,6 +2247,66 @@ namespace NotecardLib
 			return errorMessage;
 		}
 
+		/// <summary>Executes a SQL string and returns the requested value.</summary>
+		/// <param name="sql">The SQL to execute.</param>
+		/// <param name="path">The path of the database to access.</param>
+		/// <param name="parameter">A parameter used by the SQL string.</param>
+		/// <param name="result">The return values.</param>
+		/// <param name="fieldName">The name of the field to return.</param>
+		public static string execReadField(string sql, string path, SQLiteParameter parameter, out List<string> result, string fieldName)
+		{
+			return execReadField(sql, path, (parameter == null ? null : new SQLiteParameter[] { parameter }), out result, fieldName);
+		}
+
+		/// <summary>Executes a SQL string and returns the requested value.</summary>
+		/// <param name="sql">The SQL to execute.</param>
+		/// <param name="path">The path of the database to access.</param>
+		/// <param name="parameters">Any parameters used by the SQL string.</param>
+		/// <param name="result">The return values.</param>
+		/// <param name="fieldName">The name of the field to return.</param>
+		/// <returns>Any error messages.</returns>
+		public static string execReadField(string sql, string path, IEnumerable<SQLiteParameter> parameters, out List<string> result, string fieldName)
+		{
+			string errorMessage = string.Empty;
+			result = null;
+
+			try
+			{
+				using (SQLiteConnection con = new SQLiteConnection(genConnectionString(path)))
+				{
+					con.Open();
+
+					using (SQLiteCommand cmd = new SQLiteCommand("BEGIN;\n" + sql + "\nCOMMIT;", con))
+					{
+						if (parameters != null)
+						{
+							foreach (SQLiteParameter p in parameters)
+							{
+								cmd.Parameters.Add(p);
+							}
+						}
+
+						using (SQLiteDataReader reader = cmd.ExecuteReader())
+						{
+							result = new List<string>();
+
+							while (reader.Read())
+							{
+								result.Add(reader[fieldName].ToString());
+							}
+						}
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				errorMessage += ex.Message;
+				result = null;
+			}
+
+			return errorMessage;
+		}
+
 		/// <summary>Executes a SQL string and returns a dataset.</summary>
 		/// <param name="sql">The SQL to execute.</param>
 		/// <param name="path">The path of the database to access.</param>
@@ -1655,6 +2344,35 @@ namespace NotecardLib
 			return errorMessage;
 		}
 
+		/// <summary>Cleans up the database.</summary>
+		/// <param name="path">The path of the current database.</param>
+		/// <returns>Any error messages.</returns>
+		public static string vacuum(string path)
+		{
+			string errorMessage = string.Empty;
+
+			string sql = "VACUUM;";
+
+			try
+			{
+				using (SQLiteConnection con = new SQLiteConnection(genConnectionString(path)))
+				{
+					con.Open();
+
+					using (SQLiteCommand cmd = new SQLiteCommand(sql, con))
+					{
+						cmd.ExecuteNonQuery();
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				errorMessage += ex.Message;
+			}
+
+			return errorMessage;
+		}
+
 		/// <summary>Creates a SQLiteParameter.</summary>
 		/// <param name="name">The parameter name.</param>
 		/// <param name="type">The datatype of the parameter.</param>
@@ -1670,6 +2388,28 @@ namespace NotecardLib
 		#endregion DB Functions
 
 		#region General Tools
+
+		/// <summary>Finds the next name</summary>
+		/// <param name="names"></param>
+		/// <param name="newName"></param>
+		/// <param name="newNameStart"></param>
+		/// <param name="newNameEnd"></param>
+		/// <param name="newNameIndex"></param>
+		/// <returns></returns>
+		public static string findNextName(List<string> names, string newName, string newNameStart, string newNameEnd, int newNameIndex)
+		{
+			int nameNum = 1;
+			foreach (string r in names)
+			{
+				string name = r;
+
+				int temp;
+				if (name.StartsWith(newNameStart) && name.EndsWith(newNameEnd) && int.TryParse(name.Substring(newNameIndex, name.Length - newNameEnd.Length - newNameIndex), out temp) && temp >= nameNum)
+					nameNum = temp + 1;
+			}
+
+			return newNameStart + nameNum.ToString() + newNameEnd;
+		}
 
 		/// <summary>Finds the index of the provided value in a list.  Returns -1 if not found.</summary>
 		public static int indexOf<T>(IEnumerable<T> list, T value)

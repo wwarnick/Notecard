@@ -30,20 +30,46 @@ namespace NotecardLib
 		/// <summary>The fields contained in this card type, stored in the order displayed to the user.</summary>
 		public List<CardTypeField> Fields { get; private set; }
 
+		/// <summary>The color of the card type, represented by an integer.</summary>
+		private int color;
+
+		/// <summary>The color of the card type, represented by an integer.</summary>
+		public int Color
+		{
+			get { return color; }
+			set
+			{
+				color = value;
+				ColorRed = (byte)(color / 65536);
+				ColorGreen = (byte)((color - (ColorRed * 65536)) / 256);
+				ColorBlue = (byte)(color - (ColorRed * 65536) - (ColorGreen * 256));
+			}
+		}
+
+		/// <summary>The red value of the color of the card type.</summary>
+		public byte ColorRed { get; private set; }
+
+		/// <summary>The green value of the color of the card type.</summary>
+		public byte ColorGreen { get; private set; }
+
+		/// <summary>The blue value of the color of the card type.</summary>
+		public byte ColorBlue { get; private set; }
+
 		#endregion Members
 
 		#region Constructors
 
 		/// <summary>Initializes a new instance of the CardType class for a new card type.</summary>
-		public CardType() : this(string.Empty, string.Empty, string.Empty, CardTypeContext.Standalone, 0) { }
+		public CardType() : this(string.Empty, string.Empty, string.Empty, CardTypeContext.Standalone, 0, 0) { }
 
 		/// <summary>Initializes a new instance of the CardType class for an existing card type.</summary>
 		/// <param name="id">The database ID.</param>
 		/// <param name="name">The name displayed to the user.</param>
 		/// <param name="parentID">The ID of the inherited card type.</param>
 		/// <param name="context">The context where where the card type is used.</param>
+		/// <param name="color">The color of the card type, represented by an integer.</param>
 		/// <param name="numFields">The total number of fields, including inherited.</param>
-		public CardType(string id, string name, string parentID, CardTypeContext context, int numFields)
+		public CardType(string id, string name, string parentID, CardTypeContext context, int color, int numFields)
 		{
 			this.ID = id;
 			this.Name = name;
@@ -51,6 +77,7 @@ namespace NotecardLib
 			this.Context = context;
 			this.NumFields = numFields;
 			this.Fields = new List<CardTypeField>();
+			this.Color = color;
 		}
 
 		#endregion Constructors

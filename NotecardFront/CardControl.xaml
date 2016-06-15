@@ -6,15 +6,18 @@
              xmlns:local="clr-namespace:NotecardFront"
              mc:Ignorable="d" 
              d:DesignHeight="300" d:DesignWidth="300">
-    <StackPanel Name="stkMain" Background="AliceBlue" MouseDown="stkMain_MouseDown">
-        <Grid>
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="20"/>
-            </Grid.ColumnDefinitions>
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="5"/>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="5"/>
+        </Grid.ColumnDefinitions>
 
-            <Label Name="lblCardType" Background="Green" Foreground="White" FontSize="10"/>
-            <Button Name="btnArchive" Grid.Column="1" Click="btnArchive_Click">X</Button>
-        </Grid>
-    </StackPanel>
+        <StackPanel Name="stkMain" Grid.Column="1">
+
+        </StackPanel>
+
+        <Rectangle Name="rResizeL" Cursor="SizeWE" Fill="Transparent" MouseDown="rResizeL_MouseDown"/>
+        <Rectangle Name="rResizeR" Grid.Column="2" Cursor="SizeWE" Fill="Transparent" MouseDown="rResizeR_MouseDown"/>
+    </Grid>
 </UserControl>

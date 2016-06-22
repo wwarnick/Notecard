@@ -52,26 +52,25 @@ namespace NotecardFront
 		/// <summary>Performs search and displays results.</summary>
 		private void txtSearch_TextChanged(object sender, TextChangedEventArgs e)
 		{
-			string errorMessage = string.Empty;
+			string userMessage = string.Empty;
 
-			string[] ids = null;
+			List<string> ids = null;
 
 			if (!string.IsNullOrEmpty(txtSearch.Text))
-				errorMessage += CardManager.search(txtSearch.Text, CardTypes, Path, out ids);
+				ids = CardManager.search(txtSearch.Text, CardTypes, Path, ref userMessage);
 
-			if (ids == null || ids.Length == 0)
+			if (ids == null || ids.Count == 0)
 			{
 				lstSearchResults.ItemsSource = new Item<string>[0];
 				popSearchResults.IsOpen = false;
 			}
 			else
 			{
-				string[] names;
-				errorMessage += CardManager.getCardNames(ids, Path, out names);
+				List<string> names = CardManager.getCardNames(ids, Path, ref userMessage);
 
-				Item<string>[] items = new Item<string>[ids.Length];
+				Item<string>[] items = new Item<string>[ids.Count];
 
-				for (int i = 0; i < ids.Length; i++)
+				for (int i = 0; i < ids.Count; i++)
 				{
 					items[i] = new Item<string>(names[i], ids[i]);
 				}
@@ -80,8 +79,8 @@ namespace NotecardFront
 				popSearchResults.IsOpen = true;
 			}
 
-			if (!string.IsNullOrEmpty(errorMessage))
-				MessageBox.Show(errorMessage);
+			if (!string.IsNullOrEmpty(userMessage))
+				MessageBox.Show(userMessage);
 		}
 
 		/// <summary>Fires selection event.</summary>

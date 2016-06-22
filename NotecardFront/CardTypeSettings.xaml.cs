@@ -25,7 +25,6 @@ namespace NotecardFront
 
 		public string Path { get; set; }
 		private CardType CurCardType;
-		StringBuilder userMessage = new StringBuilder();
 
 		#endregion Members
 
@@ -34,24 +33,32 @@ namespace NotecardFront
 			InitializeComponent();
 
 			// fill field type combo box
-			Item<string>[] items = new Item<string>[3];
-			items[0] = new Item<string>("Text", ((int)DataType.Text).ToString());
-			items[1] = new Item<string>("Card", ((int)DataType.Card).ToString());
-			items[2] = new Item<string>("List", ((int)DataType.List).ToString());
+			Item<string>[] items = new Item<string>[]
+				{
+					new Item<string>("Text", ((int)DataType.Text).ToString()),
+					new Item<string>("Card", ((int)DataType.Card).ToString()),
+					new Item<string>("List", ((int)DataType.List).ToString()),
+					new Item<string>("Image", ((int)DataType.Image).ToString())
+				};
 			cmbCardTypeFieldType.ItemsSource = items;
 
 			// fill list field type combo box
-			items = new Item<string>[2];
-			items[0] = new Item<string>("Text", ((int)DataType.Text).ToString());
-			items[1] = new Item<string>("Card", ((int)DataType.Card).ToString());
+			items = new Item<string>[]
+				{
+					new Item<string>("Text", ((int)DataType.Text).ToString()),
+					new Item<string>("Card", ((int)DataType.Card).ToString()),
+					new Item<string>("Image", ((int)DataType.Image).ToString())
+				};
 			cmbListFieldType.ItemsSource = items;
 
 			// fill card type color combo box
-			Item<int>[] iItems = new Item<int>[4];
-			iItems[0] = new Item<int>("Red", 175 * 16 * 16 * 16 * 16);//16711680);
-			iItems[1] = new Item<int>("Yellow", 150 * 16 * 16 + 150 * 16 * 16 * 16 * 16);
-			iItems[2] = new Item<int>("Green", 128 * 16 * 16);//32768);
-			iItems[3] = new Item<int>("Blue", 255);
+			Item<int>[] iItems = new Item<int>[]
+				{
+					new Item<int>("Red", 175 * 16 * 16 * 16 * 16),
+					new Item<int>("Yellow", 150 * 16 * 16 + 150 * 16 * 16 * 16 * 16),
+					new Item<int>("Green", 128 * 16 * 16),
+					new Item<int>("Blue", 255)
+				};
 			cmbCardTypeColor.ItemsSource = iItems;
 
 			// the current card type
@@ -60,19 +67,18 @@ namespace NotecardFront
 
 		#region Methods
 
-		private void refresh()
+		private void refresh(ref string userMessage)
 		{
 			lstCardType.SelectedValue = null;
-			refreshCardTypeLists();
+			refreshCardTypeLists(ref userMessage);
 		}
 
-		private void refreshCardTypeLists()
+		private void refreshCardTypeLists(ref string userMessage)
 		{
 			string selType = (string)lstCardType.SelectedValue;
 			string selField = (string)lstCardTypeField.SelectedValue;
 
-			List<string[]> results;
-			CardManager.getCardTypeIDsAndNames(Path, out results);
+			List<string[]> results = CardManager.getCardTypeIDsAndNames(Path, ref userMessage);
 
 			Item<string>[] items = new Item<string>[results.Count];
 			Item<string>[] itemsWNull = new Item<string>[results.Count + 1];
@@ -92,7 +98,7 @@ namespace NotecardFront
 			if (listBoxContains(lstCardType, selType))
 				lstCardType.SelectedValue = selType;
 
-			refreshCardTypeFieldList();
+			refreshCardTypeFieldList(ref userMessage);
 
 			if (listBoxContains(lstCardTypeField, selField))
 				lstCardTypeField.SelectedValue = selField;
@@ -114,12 +120,12 @@ namespace NotecardFront
 			return false;
 		}
 
-		private void refreshCardTypeFieldList()
+		private void refreshCardTypeFieldList(ref string userMessage)
 		{
-			refreshCardTypeFieldList((string)lstCardType.SelectedValue);
+			refreshCardTypeFieldList((string)lstCardType.SelectedValue, ref userMessage);
 		}
 
-		private void refreshCardTypeFieldList(string cardTypeID)
+		private void refreshCardTypeFieldList(string cardTypeID, ref string userMessage)
 		{
 			if (string.IsNullOrEmpty(cardTypeID))
 			{
@@ -129,8 +135,7 @@ namespace NotecardFront
 			{
 				string selField = (string)lstCardTypeField.SelectedValue;
 
-				List<string[]> results;
-				CardManager.getCardTypeFieldIDsAndNames(cardTypeID, Path, out results);
+				List<string[]> results = CardManager.getCardTypeFieldIDsAndNames(cardTypeID, Path, ref userMessage);
 
 				Item<string>[] items = new Item<string>[results.Count];
 
@@ -146,29 +151,24 @@ namespace NotecardFront
 			}
 		}
 
-		private void refreshCurCardType()
+		private void refreshCurCardType(ref string userMessage)
 		{
-			refreshCurCardType((string)lstCardType.SelectedValue);
+			refreshCurCardType((string)lstCardType.SelectedValue, ref userMessage);
 		}
 
-		private string refreshCurCardType(string selValue)
+		private void refreshCurCardType(string selValue, ref string userMessage)
 		{
-			string errorMessage = string.Empty;
-
-			if (string.IsNullOrEmpty(selValue))
-				CurCardType = null;
-			else
-				errorMessage += CardManager.getCardType(selValue, Path, out CurCardType);
-
-			return errorMessage;
+			CurCardType = string.IsNullOrEmpty(selValue)
+				? null
+				: CardManager.getCardType(selValue, Path, ref userMessage);
 		}
 
-		private void refreshListFieldList()
+		private void refreshListFieldList(ref string userMessage)
 		{
-			refreshListFieldList((string)lstCardTypeField.SelectedValue);
+			refreshListFieldList((string)lstCardTypeField.SelectedValue, ref userMessage);
 		}
 
-		private void refreshListFieldList(string cardTypeFieldID)
+		private void refreshListFieldList(string cardTypeFieldID, ref string userMessage)
 		{
 			// get selected card type field
 			CardTypeField curTypeField = null;
@@ -192,10 +192,7 @@ namespace NotecardFront
 			{
 				string selField = (string)lstListField.SelectedValue;
 
-
-
-				List<string[]> results;
-				CardManager.getCardTypeFieldIDsAndNames(curTypeField.RefCardTypeID, Path, out results);
+				List<string[]> results = CardManager.getCardTypeFieldIDsAndNames(curTypeField.RefCardTypeID, Path, ref userMessage);
 
 				Item<string>[] items = new Item<string>[results.Count];
 
@@ -211,33 +208,21 @@ namespace NotecardFront
 			}
 		}
 
-		private void addMessage(string message)
+		private void showMessages(string userMessages)
 		{
-			if (!string.IsNullOrWhiteSpace(message))
-				userMessage.AppendLine(((userMessage.Length > 0) ? "\n" : "") + message);
+			if (!string.IsNullOrEmpty(userMessages))
+				MessageBox.Show(userMessages);
 		}
 
-		private void showMessages()
+		private void refreshParentList(string cardTypeID, ref string userMessage)
 		{
-			if (userMessage.Length > 0)
-			{
-				MessageBox.Show(userMessage.ToString());
-				userMessage.Clear();
-			}
-		}
-
-		private string refreshParentList(string cardTypeID)
-		{
-			string errorMessage = string.Empty;
-
 			if (string.IsNullOrEmpty(cardTypeID))
 			{
 				cmbCardTypeParent.ItemsSource = new Item<string>[0];
 			}
 			else
 			{
-				List<string[]> results;
-				errorMessage += CardManager.getAllButDescendents(cardTypeID, Path, out results);
+				List<string[]> results = CardManager.getAllButDescendents(cardTypeID, Path, ref userMessage);
 				Item<string>[] items = new Item<string>[results.Count + 1];
 				items[0] = new Item<string>("[None]", string.Empty);
 				for (int i = 0; i < results.Count; i++)
@@ -246,8 +231,6 @@ namespace NotecardFront
 				}
 				cmbCardTypeParent.ItemsSource = items;
 			}
-
-			return errorMessage;
 		}
 
 		#region Events
@@ -260,48 +243,49 @@ namespace NotecardFront
 
 		private void this_IsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
 		{
+			string userMessage = string.Empty;
+
 			if ((bool)e.NewValue)
-				refresh();
+				refresh(ref userMessage);
+
+			showMessages(userMessage);
 		}
 
 		#region Card Type
 
 		private void btnAddCardType_Click(object sender, RoutedEventArgs e)
 		{
-			string errorMessage = string.Empty;
+			string userMessage = string.Empty;
 
-			string id;
-			errorMessage += CardManager.newCardType(CardTypeContext.Standalone, Path, out id);
+			string id = CardManager.newCardType(CardTypeContext.Standalone, Path, ref userMessage);
 
-			refreshCardTypeLists();
+			refreshCardTypeLists(ref userMessage);
 
-			if (!string.IsNullOrEmpty(errorMessage))
-				MessageBox.Show(errorMessage);
+			showMessages(userMessage);
 		}
 
 		private void btnRemCardType_Click(object sender, RoutedEventArgs e)
 		{
-			string errorMessage = string.Empty;
+			string userMessage = string.Empty;
 
 			if (!string.IsNullOrEmpty((string)lstCardType.SelectedValue))
 			{
-				errorMessage += CardManager.saveCardType((string)lstCardType.SelectedValue, new CardTypeChg(CardTypeChange.CardTypeRemove), Path);
+				CardManager.saveCardType((string)lstCardType.SelectedValue, new CardTypeChg(CardTypeChange.CardTypeRemove), Path, ref userMessage);
 
-				refreshCardTypeLists();
+				refreshCardTypeLists(ref userMessage);
 			}
 
-			if (!string.IsNullOrEmpty(errorMessage))
-				MessageBox.Show(errorMessage);
+			showMessages(userMessage);
 		}
 
 		private void lstCardType_SelectionChanged(object sender, SelectionChangedEventArgs e)
 		{
-			string errorMessage = string.Empty;
+			string userMessage = string.Empty;
 
 			string selValue = e.AddedItems.Count == 0 ? null : ((Item<string>)e.AddedItems[0]).Value;
 
-			refreshCurCardType(selValue);
-			refreshParentList(selValue);
+			refreshCurCardType(selValue, ref userMessage);
+			refreshParentList(selValue, ref userMessage);
 
 			if (string.IsNullOrEmpty(selValue))
 			{
@@ -318,45 +302,54 @@ namespace NotecardFront
 				grdCardType.IsEnabled = true;
 			}
 
-			refreshCardTypeFieldList(selValue);
+			refreshCardTypeFieldList(selValue, ref userMessage);
 
-			if (!string.IsNullOrEmpty(errorMessage))
-				MessageBox.Show(errorMessage);
+			if (!string.IsNullOrEmpty(userMessage))
+				MessageBox.Show(userMessage);
 		}
 
 		private void txtCardTypeName_LostFocus(object sender, RoutedEventArgs e)
 		{
+			string userMessage = string.Empty;
+
 			if (!string.IsNullOrEmpty((string)lstCardType.SelectedValue) && !string.IsNullOrEmpty(txtCardTypeName.Text) && txtCardTypeName.Text != CurCardType.Name)
 			{
-				addMessage(CardManager.saveCardType((string)lstCardType.SelectedValue, new CardTypeChg(CardTypeChange.CardTypeNameChange, txtCardTypeName.Text), Path));
+				CardManager.saveCardType((string)lstCardType.SelectedValue, new CardTypeChg(CardTypeChange.CardTypeNameChange, txtCardTypeName.Text), Path, ref userMessage);
 
-				refreshCurCardType();
-				refreshCardTypeLists();
+				refreshCurCardType(ref userMessage);
+				refreshCardTypeLists(ref userMessage);
 			}
 
-			showMessages();
+			showMessages(userMessage);
 		}
 
 		private void cmbCardTypeParent_LostFocus(object sender, RoutedEventArgs e)
 		{
+			string userMessage = string.Empty;
+
 			if (!string.IsNullOrEmpty((string)lstCardType.SelectedValue) && (string)cmbCardTypeParent.SelectedValue != CurCardType.ParentID)
 			{
-				addMessage(CardManager.saveCardType((string)lstCardType.SelectedValue, new CardTypeChg(CardTypeChange.CardTypeParentChange, (string)cmbCardTypeParent.SelectedValue), Path));
+				CardManager.saveCardType((string)lstCardType.SelectedValue, new CardTypeChg(CardTypeChange.CardTypeParentChange, (string)cmbCardTypeParent.SelectedValue), Path, ref userMessage);
 
-				refreshCurCardType();
+				refreshCurCardType(ref userMessage);
 			}
 
-			showMessages();
+			if (!string.IsNullOrEmpty(userMessage))
+				MessageBox.Show(userMessage);
 		}
 
 		private void cmbCardTypeColor_LostFocus(object sender, RoutedEventArgs e)
 		{
+			string userMessage = string.Empty;
+
 			if (!string.IsNullOrEmpty((string)lstCardType.SelectedValue) && (int)cmbCardTypeColor.SelectedValue != CurCardType.Color)
 			{
-				addMessage(CardManager.saveCardType((string)lstCardType.SelectedValue, new CardTypeChg(CardTypeChange.CardTypeColorChange, (int)cmbCardTypeColor.SelectedValue), Path));
+				CardManager.saveCardType((string)lstCardType.SelectedValue, new CardTypeChg(CardTypeChange.CardTypeColorChange, (int)cmbCardTypeColor.SelectedValue), Path, ref userMessage);
 
-				refreshCurCardType();
+				refreshCurCardType(ref userMessage);
 			}
+
+			showMessages(userMessage);
 		}
 
 		#endregion Card Type
@@ -365,50 +358,52 @@ namespace NotecardFront
 
 		private void btnAddCardTypeField_Click(object sender, RoutedEventArgs e)
 		{
-			string errorMessage = string.Empty;
+			string userMessage = string.Empty;
 
 			if (!string.IsNullOrEmpty((string)lstCardType.SelectedValue))
 			{
-				CardManager.saveCardType((string)lstCardType.SelectedValue, new CardTypeChg(CardTypeChange.CardTypeFieldAdd), Path);
+				CardManager.saveCardType((string)lstCardType.SelectedValue, new CardTypeChg(CardTypeChange.CardTypeFieldAdd), Path, ref userMessage);
 
-				refreshCurCardType();
-				refreshCardTypeFieldList();
+				refreshCurCardType(ref userMessage);
+				refreshCardTypeFieldList(ref userMessage);
 			}
 
-			if (!string.IsNullOrEmpty(errorMessage))
-				MessageBox.Show(errorMessage);
+			showMessages(userMessage);
 		}
 
 		private void btnRemCardTypeField_Click(object sender, RoutedEventArgs e)
 		{
-			string errorMessage = string.Empty;
+			string userMessage = string.Empty;
 
 			if (!string.IsNullOrEmpty((string)lstCardTypeField.SelectedValue))
 			{
-				errorMessage += CardManager.saveCardType((string)lstCardType.SelectedValue, new CardTypeChg(CardTypeChange.CardTypeFieldRemove, (string)lstCardTypeField.SelectedValue), Path);
+				CardManager.saveCardType((string)lstCardType.SelectedValue, new CardTypeChg(CardTypeChange.CardTypeFieldRemove, (string)lstCardTypeField.SelectedValue), Path, ref userMessage);
 
-				refreshCardTypeFieldList();
+				refreshCardTypeFieldList(ref userMessage);
 			}
 
-			if (!string.IsNullOrEmpty(errorMessage))
-				MessageBox.Show(errorMessage);
+			showMessages(userMessage);
 		}
 
 		private void txtCardTypeFieldName_LostFocus(object sender, RoutedEventArgs e)
 		{
+			string userMessage = string.Empty;
+
 			if (!string.IsNullOrEmpty((string)lstCardTypeField.SelectedValue) && !string.IsNullOrEmpty(txtCardTypeFieldName.Text) && CurCardType.Fields[lstCardTypeField.SelectedIndex].Name != txtCardTypeFieldName.Text)
 			{
-				addMessage(CardManager.saveCardType((string)lstCardType.SelectedValue, new CardTypeChg(CardTypeChange.CardTypeFieldNameChange, lstCardTypeField.SelectedValue, txtCardTypeFieldName.Text), Path));
+				CardManager.saveCardType((string)lstCardType.SelectedValue, new CardTypeChg(CardTypeChange.CardTypeFieldNameChange, lstCardTypeField.SelectedValue, txtCardTypeFieldName.Text), Path, ref userMessage);
 
-				refreshCurCardType();
-				refreshCardTypeFieldList();
+				refreshCurCardType(ref userMessage);
+				refreshCardTypeFieldList(ref userMessage);
 			}
 
-			showMessages();
+			showMessages(userMessage);
 		}
 
 		private void lstCardTypeField_SelectionChanged(object sender, SelectionChangedEventArgs e)
 		{
+			string userMessage = string.Empty;
+
 			string selValue = e.AddedItems.Count == 0 ? null : ((Item<string>)e.AddedItems[0]).Value;
 
 			if (string.IsNullOrEmpty(selValue))
@@ -429,37 +424,41 @@ namespace NotecardFront
 				grdCardTypeField.IsEnabled = true;
 			}
 
-			refreshListFieldList(selValue);
+			refreshListFieldList(selValue, ref userMessage);
 
-			showMessages();
+			showMessages(userMessage);
 		}
 
 		private void cmbCardTypeFieldType_LostFocus(object sender, RoutedEventArgs e)
 		{
+			string userMessage = string.Empty;
+
 			if (!string.IsNullOrEmpty((string)lstCardTypeField.SelectedValue) && !string.IsNullOrEmpty((string)cmbCardTypeFieldType.SelectedValue) && (int)CurCardType.Fields[lstCardTypeField.SelectedIndex].FieldType != int.Parse((string)cmbCardTypeFieldType.SelectedValue))
 			{
-				addMessage(CardManager.saveCardType((string)lstCardType.SelectedValue, new CardTypeChg(CardTypeChange.CardTypeFieldTypeChange, (string)lstCardTypeField.SelectedValue, (DataType)int.Parse((string)cmbCardTypeFieldType.SelectedValue)), Path));
+				CardManager.saveCardType((string)lstCardType.SelectedValue, new CardTypeChg(CardTypeChange.CardTypeFieldTypeChange, (string)lstCardTypeField.SelectedValue, (DataType)int.Parse((string)cmbCardTypeFieldType.SelectedValue)), Path, ref userMessage);
 
-				refreshCurCardType();
-				refreshListFieldList();
+				refreshCurCardType(ref userMessage);
+				refreshListFieldList(ref userMessage);
 			}
 
-			showMessages();
+			showMessages(userMessage);
 		}
 
 		private void cmbCardTypeFieldCardType_LostFocus(object sender, RoutedEventArgs e)
 		{
+			string userMessage = string.Empty;
+
 			if (!string.IsNullOrEmpty((string)lstCardTypeField.SelectedValue) && cmbCardTypeFieldCardType.SelectedIndex >= 0)
 			{
 				CardTypeField field = CurCardType.Fields[lstCardTypeField.SelectedIndex];
 				if (field.FieldType == DataType.Card && (!string.IsNullOrEmpty(field.RefCardTypeID) || !string.IsNullOrEmpty((string)cmbCardTypeFieldCardType.SelectedValue)) && field.RefCardTypeID != (string)cmbCardTypeFieldCardType.SelectedValue)
 				{
-					addMessage(CardManager.saveCardType((string)lstCardType.SelectedValue, new CardTypeChg(CardTypeChange.CardTypeFieldCardTypeChange, (string)lstCardTypeField.SelectedValue, (string)cmbCardTypeFieldCardType.SelectedValue), Path));
-					refreshCurCardType();
+					CardManager.saveCardType((string)lstCardType.SelectedValue, new CardTypeChg(CardTypeChange.CardTypeFieldCardTypeChange, (string)lstCardTypeField.SelectedValue, (string)cmbCardTypeFieldCardType.SelectedValue), Path, ref userMessage);
+					refreshCurCardType(ref userMessage);
 				}
 			}
 
-			showMessages();
+			showMessages(userMessage);
 		}
 
 		#endregion Card Type Field
@@ -468,39 +467,39 @@ namespace NotecardFront
 
 		private void btnAddListField_Click(object sender, RoutedEventArgs e)
 		{
-			string errorMessage = string.Empty;
+			string userMessage = string.Empty;
 
 			if (!string.IsNullOrEmpty((string)lstCardTypeField.SelectedValue) && CurCardType.Fields[lstCardTypeField.SelectedIndex].FieldType == DataType.List)
 			{
 				string listTypeID = CurCardType.Fields[lstCardTypeField.SelectedIndex].RefCardTypeID;
 
-				CardManager.saveCardType(listTypeID, new CardTypeChg(CardTypeChange.CardTypeFieldAdd), Path);
+				CardManager.saveCardType(listTypeID, new CardTypeChg(CardTypeChange.CardTypeFieldAdd), Path, ref userMessage);
 
-				refreshCurCardType();
-				refreshListFieldList();
+				refreshCurCardType(ref userMessage);
+				refreshListFieldList(ref userMessage);
 			}
 
-			if (!string.IsNullOrEmpty(errorMessage))
-				MessageBox.Show(errorMessage);
+			showMessages(userMessage);
 		}
 
 		private void btnRemListField_Click(object sender, RoutedEventArgs e)
 		{
-			string errorMessage = string.Empty;
+			string userMessage = string.Empty;
 
 			if (!string.IsNullOrEmpty((string)lstListField.SelectedValue))
 			{
-				errorMessage += CardManager.saveCardType(CurCardType.Fields[lstCardTypeField.SelectedIndex].RefCardTypeID, new CardTypeChg(CardTypeChange.CardTypeFieldRemove, (string)lstListField.SelectedValue), Path);
+				CardManager.saveCardType(CurCardType.Fields[lstCardTypeField.SelectedIndex].RefCardTypeID, new CardTypeChg(CardTypeChange.CardTypeFieldRemove, (string)lstListField.SelectedValue), Path, ref userMessage);
 
-				refreshListFieldList();
+				refreshListFieldList(ref userMessage);
 			}
 
-			if (!string.IsNullOrEmpty(errorMessage))
-				MessageBox.Show(errorMessage);
+			showMessages(userMessage);
 		}
 
 		private void lstListField_SelectionChanged(object sender, SelectionChangedEventArgs e)
 		{
+			string userMessage = string.Empty;
+
 			string selValue = e.AddedItems.Count == 0 ? null : ((Item<string>)e.AddedItems[0]).Value;
 
 			if (string.IsNullOrEmpty(selValue))
@@ -530,46 +529,54 @@ namespace NotecardFront
 				grdListField.IsEnabled = true;
 			}
 
-			showMessages();
+			showMessages(userMessage);
 		}
 
 		private void txtListFieldName_LostFocus(object sender, RoutedEventArgs e)
 		{
+			string userMessage = string.Empty;
+
 			if (!string.IsNullOrEmpty((string)lstListField.SelectedValue) && !string.IsNullOrEmpty(txtListFieldName.Text) && CurCardType.Fields[lstCardTypeField.SelectedIndex].ListType.Fields[lstListField.SelectedIndex].Name != txtListFieldName.Text)
 			{
-				addMessage(CardManager.saveCardType(CurCardType.Fields[lstCardTypeField.SelectedIndex].RefCardTypeID, new CardTypeChg(CardTypeChange.CardTypeFieldNameChange, lstListField.SelectedValue, txtListFieldName.Text), Path));
+				CardManager.saveCardType(CurCardType.Fields[lstCardTypeField.SelectedIndex].RefCardTypeID, new CardTypeChg(CardTypeChange.CardTypeFieldNameChange, lstListField.SelectedValue, txtListFieldName.Text), Path, ref userMessage);
 
-				refreshCurCardType();
-				refreshListFieldList();
+				refreshCurCardType(ref userMessage);
+				refreshListFieldList(ref userMessage);
 			}
 
-			showMessages();
+			showMessages(userMessage);
 		}
 
 		private void cmbListFieldType_LostFocus(object sender, RoutedEventArgs e)
 		{
+			string userMessage = string.Empty;
+
 			if (!string.IsNullOrEmpty((string)lstListField.SelectedValue) && !string.IsNullOrEmpty((string)cmbListFieldType.SelectedValue) && (int)CurCardType.Fields[lstCardTypeField.SelectedIndex].ListType.Fields[lstListField.SelectedIndex].FieldType != int.Parse((string)cmbListFieldType.SelectedValue))
 			{
-				addMessage(CardManager.saveCardType(CurCardType.Fields[lstCardTypeField.SelectedIndex].RefCardTypeID, new CardTypeChg(CardTypeChange.CardTypeFieldTypeChange, (string)lstListField.SelectedValue, (DataType)int.Parse((string)cmbListFieldType.SelectedValue)), Path));
+				CardManager.saveCardType(CurCardType.Fields[lstCardTypeField.SelectedIndex].RefCardTypeID, new CardTypeChg(CardTypeChange.CardTypeFieldTypeChange, (string)lstListField.SelectedValue, (DataType)int.Parse((string)cmbListFieldType.SelectedValue)), Path, ref userMessage);
 
-				refreshCurCardType();
+				refreshCurCardType(ref userMessage);
 			}
 
-			showMessages();
+			showMessages(userMessage);
 		}
 
 		private void cmbListFieldCardType_LostFocus(object sender, RoutedEventArgs e)
 		{
+			string userMessage = string.Empty;
+
 			if (!string.IsNullOrEmpty((string)lstListField.SelectedValue) && cmbListFieldCardType.SelectedIndex >= 0)
 			{
 				CardType listType = CurCardType.Fields[lstCardTypeField.SelectedIndex].ListType;
 				CardTypeField field = listType.Fields[lstListField.SelectedIndex];
 				if (field.FieldType == DataType.Card && (!string.IsNullOrEmpty(field.RefCardTypeID) || !string.IsNullOrEmpty((string)cmbListFieldCardType.SelectedValue)) && field.RefCardTypeID != (string)cmbListFieldCardType.SelectedValue)
 				{
-					addMessage(CardManager.saveCardType(listType.ID, new CardTypeChg(CardTypeChange.CardTypeFieldCardTypeChange, (string)lstListField.SelectedValue, (string)cmbListFieldCardType.SelectedValue), Path));
-					refreshCurCardType();
+					CardManager.saveCardType(listType.ID, new CardTypeChg(CardTypeChange.CardTypeFieldCardTypeChange, (string)lstListField.SelectedValue, (string)cmbListFieldCardType.SelectedValue), Path, ref userMessage);
+					refreshCurCardType(ref userMessage);
 				}
 			}
+
+			showMessages(userMessage);
 		}
 
 		#endregion List Field

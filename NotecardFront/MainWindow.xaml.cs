@@ -62,17 +62,17 @@ namespace NotecardFront
 		{
 			InitializeComponent();
 
-			string errorMessage = string.Empty;
+			string userMessage = string.Empty;
 
 			CardTypes = new Dictionary<string, CardType>();
 			Ancestries = new Dictionary<string, List<CardType>>();
 			saveDialog = new SaveFileDialog();
 			openDialog = new OpenFileDialog();
 
-			errorMessage += newFile();
+			newFile(ref userMessage);
 			
-			if (!string.IsNullOrEmpty(errorMessage))
-				MessageBox.Show(errorMessage);
+			if (!string.IsNullOrEmpty(userMessage))
+				MessageBox.Show(userMessage);
 		}
 
 		#endregion Constructors
@@ -80,33 +80,27 @@ namespace NotecardFront
 		#region Methods
 
 		/// <summary>Starts a new file.</summary>
-		/// <returns>Any error messages.</returns>
-		private string newFile()
+		/// <param name="userMessage">Any user messages.</param>
+		private void newFile(ref string userMessage)
 		{
-			string errorMessage = string.Empty;
-
 			CardTypes.Clear();
 			Ancestries.Clear();
 
 			pnlMain.Children.Clear();
 
-			errorMessage += clearCurrentDir();
+			clearCurrentDir(ref userMessage);
 
 			Path = @"current\newcardfile.sqlite";
-			errorMessage += CardManager.createNewFile(Path);
+			CardManager.createNewFile(Path, ref userMessage);
 
-			errorMessage += refreshArrangementList();
-			errorMessage += refreshCards();
-
-			return errorMessage;
+			refreshArrangementList(ref userMessage);
+			refreshCards(ref userMessage);
 		}
 
 		/// <summary>Clears the current working directory.</summary>
-		/// <returns>Any error messages.</returns>
-		private string clearCurrentDir()
+		/// <param name="userMessage">Any user messages.</param>
+		private void clearCurrentDir(ref string userMessage)
 		{
-			string errorMessage = string.Empty;
-
 			try
 			{
 				// make sure it exists
@@ -127,21 +121,15 @@ namespace NotecardFront
 			}
 			catch (Exception ex)
 			{
-				errorMessage += ex.Message;
+				userMessage += ex.Message;
 			}
-
-			return errorMessage;
 		}
 
 		/// <summary>Fills lstArrangements.</summary>
-		/// <returns>Any error messages.</returns>
-		private string refreshArrangementList()
+		/// <param name="userMessage">Any user messages.</param>
+		private void refreshArrangementList(ref string userMessage)
 		{
-			string errorMessage = string.Empty;
-
-			List<string[]> results;
-			errorMessage += CardManager.getArrangementIDsAndNames(Path, out results);
-
+			List<string[]> results = CardManager.getArrangementIDsAndNames(Path, ref userMessage);
 			Item<string>[] items = new Item<string>[results.Count];
 
 			for (int i = 0; i < items.Length; i++)
@@ -150,18 +138,13 @@ namespace NotecardFront
 			}
 
 			lstArrangements.ItemsSource = items;
-
-			return errorMessage;
 		}
 
 		/// <summary>Removes and re-adds all of the cards on the page as well as refreshing the droplists.</summary>
-		/// <returns>Any error messages.</returns>
-		private string refreshCards()
+		/// <param name="userMessage">Any user messages.</param>
+		private void refreshCards(ref string userMessage)
 		{
-			string errorMessage = string.Empty;
-
-			List<string[]> results;
-			errorMessage += CardManager.getCardTypeIDsAndNames(path, out results);
+			List<string[]> results = CardManager.getCardTypeIDsAndNames(path, ref userMessage);
 
 			CardType[] tempCardTypes = new CardType[results.Count];
 
@@ -170,8 +153,7 @@ namespace NotecardFront
 			Item<string>[] items = new Item<string>[results.Count];
 			for (int i = 0; i < items.Length; i++)
 			{
-				CardType ct;
-				errorMessage += CardManager.getCardType(results[i][0], path, out ct);
+				CardType ct = CardManager.getCardType(results[i][0], path, ref userMessage);
 				CardTypes.Add(ct.ID, ct);
 
 				tempCardTypes[i] = ct;
@@ -198,44 +180,36 @@ namespace NotecardFront
 				Ancestries.Add(ct.ID, ancestry);
 			}
 
-			errorMessage += refreshArrangement();
-
-			return errorMessage;
+			refreshArrangement(ref userMessage);
 		}
 
 		/// <summary>Clears and reloads the cards in the current arrangement.</summary>
-		/// <returns>Any error messages.</returns>
-		public string refreshArrangement()
+		/// <param name="userMessage">Any user messages.</param>
+		public void refreshArrangement(ref string userMessage)
 		{
-			string errorMessage = string.Empty;
-
 			pnlMain.Children.Clear();
 
 			if (!string.IsNullOrEmpty((string)lstArrangements.SelectedValue))
 			{
-				ArrangementCardStandalone[] cards;
-				errorMessage += CardManager.getArrangement((string)lstArrangements.SelectedValue, Path, out cards);
+				ArrangementCardStandalone[] cards = CardManager.getArrangement((string)lstArrangements.SelectedValue, Path, ref userMessage);
 
 				foreach (ArrangementCardStandalone c in cards)
 				{
-					errorMessage += openCard(c.CardID, c, false);
+					openCard(c.CardID, c, false, ref userMessage);
 				}
-			}
 
-			return errorMessage;
+				refreshLines(ref userMessage);
+			}
 		}
 
 		/// <summary>Load an existing card onto the arrangement.</summary>
 		/// <param name="cardID">The database ID of the card to load.</param>
 		/// <param name="arrangementSettings">The card's settings for the current arrangement.</param>
 		/// <param name="addToArrangement">Whether or not to add the card to the current arrangement. false if it's already part of it.</param>
-		/// <returns>Any error messages.</returns>
-		private string openCard(string cardID, ArrangementCardStandalone arrangementSettings, bool addToArrangement)
+		/// <param name="userMessage">Any user messages.</param>
+		private void openCard(string cardID, ArrangementCardStandalone arrangementSettings, bool addToArrangement, ref string userMessage)
 		{
-			string errorMessage = string.Empty;
-
-			string cardTypeID;
-			errorMessage += CardManager.getCardCardTypeID(cardID, path, out cardTypeID);
+			string cardTypeID = CardManager.getCardCardTypeID(cardID, path, ref userMessage);
 
 			CardControl c = new CardControl()
 			{
@@ -256,41 +230,43 @@ namespace NotecardFront
 				Canvas.SetTop(c, 0);
 			}
 
-			c.refreshUI(Ancestries[cardTypeID], arrangementSettings);
+			c.refreshUI(Ancestries[cardTypeID], arrangementSettings, ref userMessage);
 			c.PreviewMouseDown += CardControl_PreviewMouseDown;
 			c.Archived += CardControl_Archived;
 			c.MovedOrResized += CardControl_MovedOrResized;
 			pnlMain.Children.Add(c);
 
+			c.UpdateLayout();
 			bringToFront(c);
 
 			if (addToArrangement)
 			{
-				c.UpdateLayout();
-				string arrID;
-				errorMessage += CardManager.arrangementAddCard((string)lstArrangements.SelectedValue, cardID, 0, 0, (int)Math.Round(c.ActualWidth), Path, out arrID);
-				c.ArrangementCardID = arrID;
-				c.updateListItemArrangementIDs();
+				c.ArrangementCardID = CardManager.arrangementAddCard((string)lstArrangements.SelectedValue, cardID, 0, 0, (int)Math.Round(c.ActualWidth), Path, ref userMessage);
+				c.updateListItemArrangementIDs(ref userMessage);
 			}
-
-			return errorMessage;
 		}
 
-		/// <summary>Brings a card to the front.</summary>
-		/// <param name="c">The card.</param>
-		private void bringToFront(CardControl c)
+		/// <summary>Brings an element to the front.</summary>
+		/// <param name="el">The element.</param>
+		private void bringToFront(UIElement el)
 		{
-			int oldZ = Canvas.GetZIndex(c);
+			int oldZ = Canvas.GetZIndex(el);
 
 			// if already at the front
 			if (oldZ == pnlMain.Children.Count)
 				return;
 
-			Canvas.SetZIndex(c, pnlMain.Children.Count);
+			// move the element to the front
+			Canvas.SetZIndex(el, pnlMain.Children.Count);
 
-			foreach (UIElement ui in pnlMain.Children)
+			// if not in the order yet
+			if (oldZ == 0)
+				return;
+
+			// move the other elements
+			foreach (FrameworkElement ui in pnlMain.Children)
 			{
-				if (ui == c)
+				if (ui == el)
 					continue;
 
 				int z = Canvas.GetZIndex(ui);
@@ -299,30 +275,123 @@ namespace NotecardFront
 			}
 		}
 
+		/// <summary>Sends an element to the back.</summary>
+		/// <param name="el">The element.</param>
+		private void sendToBack(UIElement el)
+		{
+			int oldZ = Canvas.GetZIndex(el);
+
+			// if already at the back
+			if (oldZ == 1)
+				return;
+
+			// move the element to the back
+			Canvas.SetZIndex(el, 1);
+
+			// if not in the order yet
+			if (oldZ == 0)
+				oldZ = int.MaxValue;
+
+			// move the other elements
+			foreach (FrameworkElement ui in pnlMain.Children)
+			{
+				if (ui == el)
+					continue;
+
+				int z = Canvas.GetZIndex(ui);
+				if (z < oldZ)
+					Canvas.SetZIndex(ui, z + 1);
+			}
+		}
+
+		/// <summary>Refreshes the lines connecting the cards.</summary>
+		/// <param name="userMessage">Any user messages.</param>
+		private void refreshLines(ref string userMessage)
+		{
+			List<string[]> connections = CardManager.getArrangementCardConnections((string)lstArrangements.SelectedValue, Path, ref userMessage);
+
+			// collect card positions
+			Dictionary<string, Point> positions = new Dictionary<string, Point>();
+			for (int i = 0; i < pnlMain.Children.Count; i++)
+			{
+				FrameworkElement ui = (FrameworkElement)pnlMain.Children[i];
+
+				// remove lines
+				if ((string)ui.Tag == "line")
+				{
+					pnlMain.Children.RemoveAt(i);
+					i--;
+					continue;
+				}
+
+				positions.Add(((CardControl)ui).CardID, new Point(Canvas.GetLeft(ui) + ui.ActualWidth / 2d, Canvas.GetTop(ui) + ui.ActualHeight / 2d));
+			}
+
+			foreach (string[] connection in connections)
+			{
+				Point point1 = positions[connection[0]];
+				Point point2 = positions[connection[1]];
+
+				double width = Math.Abs(point2.X - point1.X);
+				double height = Math.Abs(point2.Y - point1.Y);
+
+				double x1 = 0;
+				double x2 = 0;
+				double y1 = 0;
+				double y2 = 0;
+
+				if (point2.X > point1.X)
+					x2 = width;
+				else
+					x1 = width;
+
+				if (point2.Y > point1.Y)
+					y2 = height;
+				else
+					y1 = height;
+
+				Line line = new Line()
+				{
+					X1 = x1,
+					Y1 = y1,
+					X2 = x2,
+					Y2 = y2,
+					Stroke = Brushes.Black,
+					StrokeThickness = 4
+				};
+
+				Canvas.SetLeft(line, Math.Min(point1.X, point2.X));
+				Canvas.SetTop(line, Math.Min(point1.Y, point2.Y));
+
+				pnlMain.Children.Add(line);
+				sendToBack(line);
+			}
+		}
+
 		#region Events
 
 		/// <summary>Sets the position and size of the card in the current arrangement.</summary>
 		private void CardControl_MovedOrResized(object sender, EventArgs e)
 		{
-			string errorMessage = string.Empty;
+			string userMessage = string.Empty;
 
 			CardControl card = (CardControl)sender;
-			errorMessage += CardManager.setCardPosAndSize((string)lstArrangements.SelectedValue, (string)card.Tag, (int)Math.Round(Canvas.GetLeft(card)), (int)Math.Round(Canvas.GetTop(card)), (int)Math.Round(card.ActualWidth), Path);
+			CardManager.setCardPosAndSize((string)lstArrangements.SelectedValue, (string)card.Tag, (int)Math.Round(Canvas.GetLeft(card)), (int)Math.Round(Canvas.GetTop(card)), (int)Math.Round(card.ActualWidth), Path, ref userMessage);
 
-			if (!string.IsNullOrEmpty(errorMessage))
-				MessageBox.Show(errorMessage);
+			if (!string.IsNullOrEmpty(userMessage))
+				MessageBox.Show(userMessage);
 		}
 
 		/// <summary>Removes the archived card from the current arrangement.</summary>
 		private void CardControl_Archived(object sender, EventArgs e)
 		{
-			string errorMessage = string.Empty;
+			string userMessage = string.Empty;
 			CardControl c = (CardControl)sender;
 
-			errorMessage += CardManager.arrangementRemoveCard((string)lstArrangements.SelectedValue, (string)c.Tag, Path);
+			CardManager.arrangementRemoveCard((string)lstArrangements.SelectedValue, (string)c.Tag, Path, ref userMessage);
 
-			if (!string.IsNullOrEmpty(errorMessage))
-				MessageBox.Show(errorMessage);
+			if (!string.IsNullOrEmpty(userMessage))
+				MessageBox.Show(userMessage);
 		}
 
 		/// <summary>Shows the card type settings.</summary>
@@ -334,67 +403,84 @@ namespace NotecardFront
 		/// <summary>If the card type settings was hidden, then refresh the current arrangement.</summary>
 		private void lclCardTypeSettings_IsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
 		{
-			string errorMessage = string.Empty;
+			string userMessage = string.Empty;
 
 			if (!(bool)e.NewValue)
-				errorMessage += refreshCards();
+				refreshCards(ref userMessage);
 
-			if (!string.IsNullOrEmpty(errorMessage))
-				MessageBox.Show(errorMessage);
+			if (!string.IsNullOrEmpty(userMessage))
+				MessageBox.Show(userMessage);
 		}
 
 		/// <summary>Add a new card to the arrangement.</summary>
 		private void btnAddCard_Click(object sender, RoutedEventArgs e)
 		{
-			string errorMessage = string.Empty;
+			string userMessage = string.Empty;
 
 			if (!string.IsNullOrEmpty((string)lstArrangements.SelectedValue))
 			{
-				string cardID;
-				errorMessage += CardManager.newCard(Ancestries[(string)cmbAddCardType.SelectedValue], path, out cardID);
+				string cardID = CardManager.newCard(Ancestries[(string)cmbAddCardType.SelectedValue], path, ref userMessage);
 
-				errorMessage += openCard(cardID, null, true);
+				openCard(cardID, null, true, ref userMessage);
 			}
 
-			if (!string.IsNullOrEmpty(errorMessage))
-				MessageBox.Show(errorMessage);
+			if (!string.IsNullOrEmpty(userMessage))
+				MessageBox.Show(userMessage);
 		}
 
 		/// <summary>Bring card to the front.</summary>
 		private void CardControl_PreviewMouseDown(object sender, MouseButtonEventArgs e)
 		{
-			bringToFront((CardControl)sender);
+			CardControl c = (CardControl)sender;
+
+			if (c.Highlight != CardControl.HighlightStatuses.Selected)
+			{
+				foreach (FrameworkElement f in pnlMain.Children)
+				{
+					if ((string)f.Tag == "line")
+						continue;
+
+					((CardControl)f).Highlight = CardControl.HighlightStatuses.None;
+				}
+
+				c.Highlight = CardControl.HighlightStatuses.Selected;
+			}
+
+			bringToFront(c);
 		}
 
 		/// <summary>Load the searched card onto the current arrangement.</summary>
 		private void txtSearch_SelectionMade(UserControl sender, SearchBoxEventArgs e)
 		{
-			string errorMessage = string.Empty;
+			string userMessage = string.Empty;
 
 			if (!string.IsNullOrEmpty((string)lstArrangements.SelectedValue))
 			{
-				foreach (CardControl c in pnlMain.Children)
+				foreach (FrameworkElement ui in pnlMain.Children)
 				{
+					if ((string)ui.Tag == "line")
+						continue;
+
 					// if the card is already on the board
-					if (c.CardID == e.SelectedValue)
+					if (((CardControl)ui).CardID == e.SelectedValue)
 						return;
 				}
 
-				errorMessage += openCard(e.SelectedValue, null, true);
+				openCard(e.SelectedValue, null, true, ref userMessage);
 			}
 
-			if (!string.IsNullOrEmpty(errorMessage))
-				MessageBox.Show(errorMessage);
+			if (!string.IsNullOrEmpty(userMessage))
+				MessageBox.Show(userMessage);
 		}
 
 		/// <summary>Show the user the save dialog, and save the file to the selected path.</summary>
 		private void btnSaveAs_Click(object sender, RoutedEventArgs e)
 		{
-			string errorMessage = string.Empty;
+			string userMessage = string.Empty;
 
 			if (saveDialog.ShowDialog() == true)
 			{
-				CardManager.vacuum(Path);
+				CardManager.vacuum(Path, ref userMessage);
 
 				try
 				{
@@ -402,33 +488,33 @@ namespace NotecardFront
 				}
 				catch (Exception ex)
 				{
-					errorMessage += ex.Message;
+					userMessage += ex.Message;
 				}
 			}
 
-			if (!string.IsNullOrEmpty(errorMessage))
-				MessageBox.Show(errorMessage);
+			if (!string.IsNullOrEmpty(userMessage))
+				MessageBox.Show(userMessage);
 		}
 
 		/// <summary>Clears the page and starts a new file.</summary>
 		private void btnNew_Click(object sender, RoutedEventArgs e)
 		{
-			string errorMessage = string.Empty;
+			string userMessage = string.Empty;
 
-			errorMessage += newFile();
+			newFile(ref userMessage);
 
-			if (!string.IsNullOrEmpty(errorMessage))
-				MessageBox.Show(errorMessage);
+			if (!string.IsNullOrEmpty(userMessage))
+				MessageBox.Show(userMessage);
 		}
 
 		/// <summary>Opens an existing file.</summary>
 		private void btnOpen_Click(object sender, RoutedEventArgs e)
 		{
-			string errorMessage = string.Empty;
+			string userMessage = string.Empty;
 
 			if (openDialog.ShowDialog() == true)
 			{
-				clearCurrentDir();
+				clearCurrentDir(ref userMessage);
 				CardTypes.Clear();
 				Ancestries.Clear();
 				pnlMain.Children.Clear();
@@ -439,41 +525,40 @@ namespace NotecardFront
 				}
 				catch (Exception ex)
 				{
-					errorMessage += ex.Message;
+					userMessage += ex.Message;
 				}
 
-				errorMessage += refreshArrangementList();
-				errorMessage += refreshCards();
+				refreshArrangementList(ref userMessage);
+				refreshCards(ref userMessage);
 			}
 
-			if (!string.IsNullOrEmpty(errorMessage))
-				MessageBox.Show(errorMessage);
+			if (!string.IsNullOrEmpty(userMessage))
+				MessageBox.Show(userMessage);
 		}
 
 		/// <summary>Loads the selected arrangement.</summary>
 		private void lstArrangements_SelectionChanged(object sender, SelectionChangedEventArgs e)
 		{
-			string errorMessage = string.Empty;
+			string userMessage = string.Empty;
 
 			if (!string.IsNullOrEmpty((string)lstArrangements.SelectedValue))
 			{
 				txtArrangementName.Text = ((Item<string>)lstArrangements.SelectedItem).Text;
 
-				errorMessage += refreshArrangement();
+				refreshArrangement(ref userMessage);
 			}
 
-			if (!string.IsNullOrEmpty(errorMessage))
-				MessageBox.Show(errorMessage);
+			if (!string.IsNullOrEmpty(userMessage))
+				MessageBox.Show(userMessage);
 		}
 
 		/// <summary>Adds a new arrangement.</summary>
 		private void btnAddArrangement_Click(object sender, RoutedEventArgs e)
 		{
-			string errorMessage = string.Empty;
+			string userMessage = string.Empty;
 
-			string id;
 			string name;
-			errorMessage += CardManager.addArrangement(null, Path, out id, out name);
+			string id = CardManager.addArrangement(null, Path, out name, ref userMessage);
 
 			Item<string>[] items = (Item<string>[])lstArrangements.ItemsSource;
 			Item<string>[] newItems = new Item<string>[items.Length + 1];
@@ -481,40 +566,40 @@ namespace NotecardFront
 			newItems[newItems.Length - 1] = new Item<string>(name, id);
 			lstArrangements.ItemsSource = newItems;
 
-			if (!string.IsNullOrEmpty(errorMessage))
-				MessageBox.Show(errorMessage);
+			if (!string.IsNullOrEmpty(userMessage))
+				MessageBox.Show(userMessage);
 		}
 
 		/// <summary>Removes the current arrangement.</summary>
 		private void btnRemoveArrangement_Click(object sender, RoutedEventArgs e)
 		{
-			string errorMessage = string.Empty;
+			string userMessage = string.Empty;
 
 			if (!string.IsNullOrWhiteSpace((string)lstArrangements.SelectedValue))
 			{
-				errorMessage += CardManager.removeArrangement((string)lstArrangements.SelectedValue, Path);
-				errorMessage += refreshArrangementList();
+				CardManager.removeArrangement((string)lstArrangements.SelectedValue, Path, ref userMessage);
+				refreshArrangementList(ref userMessage);
 			}
 
-			if (!string.IsNullOrEmpty(errorMessage))
-				MessageBox.Show(errorMessage);
+			if (!string.IsNullOrEmpty(userMessage))
+				MessageBox.Show(userMessage);
 		}
 
 		/// <summary>Changes the name of the current arrangement.</summary>
 		private void txtArrangementName_LostFocus(object sender, RoutedEventArgs e)
 		{
-			string errorMessage = string.Empty;
+			string userMessage = string.Empty;
 
 			if (!string.IsNullOrEmpty((string)lstArrangements.SelectedValue) && !string.IsNullOrEmpty(txtArrangementName.Text))
 			{
-				errorMessage += CardManager.arrangementChangeName((string)lstArrangements.SelectedValue, txtArrangementName.Text, Path);
+				CardManager.arrangementChangeName((string)lstArrangements.SelectedValue, txtArrangementName.Text, Path, ref userMessage);
 				Item<string>[] items = (Item<string>[])lstArrangements.ItemsSource;
 				items[lstArrangements.SelectedIndex].Text = txtArrangementName.Text;
 				lstArrangements.Items.Refresh();
 			}
 
-			if (!string.IsNullOrEmpty(errorMessage))
-				MessageBox.Show(errorMessage);
+			if (!string.IsNullOrEmpty(userMessage))
+				MessageBox.Show(userMessage);
 		}
 
 		#endregion Events

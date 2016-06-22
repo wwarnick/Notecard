@@ -50,7 +50,8 @@ namespace NotecardFront
 			set
 			{
 				selectedValue = value;
-				updateValue();
+				string tempError = string.Empty;
+				updateValue(ref tempError);
 			}
 		}
 
@@ -80,37 +81,32 @@ namespace NotecardFront
 		#region Methods
 
 		/// <summary>Updates the selection display.</summary>
-		/// <returns>Any error messages.</returns>
-		private string updateValue()
+		/// <param name="userMessage">Any user messages.</param>
+		private void updateValue(ref string userMessage)
 		{
-			string errorMessage = string.Empty;
-
 			if (string.IsNullOrEmpty(SelectedValue))
 			{
 				lblSelection.Text = EmptyString;
 			}
 			else
 			{
-				string[] name;
-				errorMessage += CardManager.getCardNames(new string[] { SelectedValue }, Path, out name);
+				List<string> name = CardManager.getCardNames(new string[] { SelectedValue }, Path, ref userMessage);
 				lblSelection.Text = name[0];
 			}
-
-			return errorMessage;
 		}
 
 		/// <summary>Displays the selection.</summary>
 		private void txtSearch_SelectionMade(UserControl sender, SearchBoxEventArgs e)
 		{
-			string errorMessage = string.Empty;
+			string userMessage = string.Empty;
 
 			selectedValue = e.SelectedValue;
-			errorMessage += updateValue();
+			updateValue(ref userMessage);
 
 			SelectionMade?.Invoke(this, e);
 
-			if (!string.IsNullOrEmpty(errorMessage))
-				MessageBox.Show(errorMessage);
+			if (!string.IsNullOrEmpty(userMessage))
+				MessageBox.Show(userMessage);
 		}
 
 		/// <summary>Displays the search box.</summary>

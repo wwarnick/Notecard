@@ -23,6 +23,9 @@ namespace NotecardFront
 	{
 		#region Members
 
+		/// <summary>The various different highlight statuses.</summary>
+		public enum HighlightStatuses { Selected, Connected, None }
+
 		/// <summary>The database ID of the card.</summary>
 		public string CardID { get; set; }
 
@@ -52,6 +55,47 @@ namespace NotecardFront
 		/// <summary>How far the cursor is from the upper-left corner of the card.</summary>
 		private Point dragOffset;
 
+		/// <summary>The card's current highlight status.</summary>
+		private HighlightStatuses highlight;
+
+		/// <summary>The card's current highlight status.</summary>
+		public HighlightStatuses Highlight
+		{
+			get { return highlight; }
+			set
+			{
+				highlight = value;
+
+				switch (highlight)
+				{
+					case HighlightStatuses.Selected:
+						{
+							var shadow = new System.Windows.Media.Effects.DropShadowEffect();
+							shadow.ShadowDepth = 0d;
+							shadow.BlurRadius = 10d;
+							shadow.Color = Colors.LightBlue;
+							stkMain.Effect = shadow;
+						}
+						break;
+					case HighlightStatuses.Connected:
+						{
+							var shadow = new System.Windows.Media.Effects.DropShadowEffect();
+							shadow.ShadowDepth = 0d;
+							shadow.Color = Colors.Red;
+							stkMain.Effect = shadow;
+						}
+						break;
+					case HighlightStatuses.None:
+						{
+							stkMain.Effect = null;
+						}
+						break;
+					default:
+						throw new Exception("Unknown highlight status: " + highlight.ToString());
+				}
+			}
+		}
+
 		/// <summary>Fired when the card is archived.</summary>
 		public event EventHandler Archived;
 
@@ -66,6 +110,8 @@ namespace NotecardFront
 		public CardControl()
 		{
 			InitializeComponent();
+
+			highlight = HighlightStatuses.None;
 		}
 
 		#endregion Constructors
@@ -97,16 +143,12 @@ namespace NotecardFront
 		/// <param name="cardTypes">The card's card type and its ancestors.</param>
 		/// <param name="arrangementSettings">The card's settings for the current arrangement.</param>
 		/// <returns>Any error messages.</returns>
-		public string refreshUI(List<CardType> cardTypes, ArrangementCard arrangementSettings)
+		public void refreshUI(List<CardType> cardTypes, ArrangementCard arrangementSettings, ref string userMessage)
 		{
-			string errorMessage = string.Empty;
-
 			CardTypes = cardTypes;
 			ArrangementCardID = (arrangementSettings == null) ? null : arrangementSettings.ID;
 
-			Card cd;
-			errorMessage += CardManager.getCard(CardID, Path, out cd, CardTypes);
-			CardData = cd;
+			CardData = CardManager.getCard(CardID, Path, CardTypes, ref userMessage);
 
 			stkMain.MouseDown -= stkMain_MouseDown;
 			stkMain.Children.Clear();
@@ -116,6 +158,7 @@ namespace NotecardFront
 			// add title bar
 			if (CardData.CType.Context == CardTypeContext.Standalone)
 			{
+				// prepare title bar
 				Grid grdTitleBar = new Grid();
 				ColumnDefinition col = new ColumnDefinition();
 				col.Width = new GridLength(1d, GridUnitType.Star);
@@ -127,8 +170,10 @@ namespace NotecardFront
 				col.Width = new GridLength(20d);
 				grdTitleBar.ColumnDefinitions.Add(col);
 
+				// get title bar color
 				titleBrush = new SolidColorBrush(Color.FromRgb(CardData.CType.ColorRed, CardData.CType.ColorGreen, CardData.CType.ColorBlue));
 
+				// show card type
 				TextBlock lblCardType = new TextBlock()
 				{
 					Background = titleBrush,
@@ -139,12 +184,14 @@ namespace NotecardFront
 				};
 				grdTitleBar.Children.Add(lblCardType);
 
+				// archive button
 				Button btnArchive = new Button();
 				btnArchive.Content = "-";
 				btnArchive.Click += btnArchive_Click;
 				Grid.SetColumn(btnArchive, 1);
 				grdTitleBar.Children.Add(btnArchive);
 
+				// delete button
 				Button btnDeleteCard = new Button();
 				btnDeleteCard.Content = "X";
 				btnDeleteCard.Click += btnDeleteCard_Click;
@@ -164,6 +211,7 @@ namespace NotecardFront
 			int textFieldIndex = 0;
 			int cardFieldIndex = 0;
 			int listFieldIndex = 0;
+			int imageFieldIndex = 0;
 			foreach (CardType ct in CardTypes)
 			{
 				foreach (CardTypeField f in ct.Fields)
@@ -245,11 +293,7 @@ namespace NotecardFront
 								txtCardSearch.SelectionMade += txtCardSearch_SelectionMade;
 
 								if (!string.IsNullOrEmpty(f.RefCardTypeID))
-								{
-									string descendents;
-									errorMessage += CardManager.getCardTypeDescendents(f.RefCardTypeID, Path, out descendents);
-									txtCardSearch.CardTypes = descendents;
-								}
+									txtCardSearch.CardTypes = CardManager.getCardTypeDescendents(f.RefCardTypeID, Path, ref userMessage);
 
 								newPanel.Children.Add(txtCardSearch);
 
@@ -269,8 +313,8 @@ namespace NotecardFront
 								foreach (Card c in items)
 								{
 									ArrangementCardList l = (arrangementSettings == null) ? null : ((ArrangementCardStandalone)arrangementSettings).ListItems[listFieldIndex];
-									CardControl item = newListItem(c.ID, f.ListType, l, ref errorMessage);
-									item.ArrangementCardID = CardManager.getArrangementListCardID(ArrangementCardID, item.CardID, Path, ref errorMessage);
+									CardControl item = newListItem(c.ID, f.ListType, l, ref userMessage);
+									item.ArrangementCardID = CardManager.getArrangementListCardID(ArrangementCardID, item.CardID, Path, ref userMessage);
 									pnlList.Children.Add(item);
 								}
 
@@ -288,6 +332,44 @@ namespace NotecardFront
 								newPanel.Children.Add(pnlList);
 
 								listFieldIndex++;
+							}
+							break;
+						case DataType.Image:
+							{
+								newPanel = new DockPanel();
+								newPanel.Tag = DataType.Image;
+								DockPanel.SetDock(lbl, Dock.Left);
+								newPanel.Children.Add(lbl);
+
+								Image image = new Image()
+								{
+									MaxHeight = 200,
+									MaxWidth = 200,
+									Tag = f
+								};
+								newPanel.Background = Brushes.Transparent;
+								newPanel.PreviewDragEnter += image_PreviewDragEnter;
+								newPanel.PreviewDragOver += image_PreviewDragOver;
+								newPanel.PreviewDrop += image_PreviewDrop;
+								newPanel.AllowDrop = true;
+
+								string imgID = (string)CardData.Fields[fieldIndex];
+
+								// load current image
+								if (!string.IsNullOrEmpty(imgID))
+								{
+									BitmapImage bmp = new BitmapImage();
+									bmp.BeginInit();
+									bmp.UriSource = new Uri(@"current\" + imgID, UriKind.Relative);
+									bmp.CreateOptions = BitmapCreateOptions.IgnoreImageCache;
+									bmp.CacheOption = BitmapCacheOption.OnLoad;
+									bmp.EndInit();
+									image.Source = bmp;
+								}
+
+								newPanel.Children.Add(image);
+
+								imageFieldIndex++;
 							}
 							break;
 						default:
@@ -308,17 +390,115 @@ namespace NotecardFront
 					fieldIndex++;
 				}
 			}
+		}
 
-			return errorMessage;
+		/// <summary>Tells whether a drag is valid or not.</summary>
+		private void image_PreviewDragEnter(object sender, DragEventArgs e)
+		{
+			e.Effects = DragDropEffects.None;
+
+			if (e.Data.GetDataPresent(DataFormats.FileDrop))
+			{
+				string imgPath = ((string[])e.Data.GetData(DataFormats.FileDrop))[0];
+
+				string extension = imgPath.Substring(imgPath.LastIndexOf('.') + 1).ToLower();
+
+				if (extension == "bmp" || extension == "jpg" || extension == "jpeg" || extension == "png" || extension == "gif" || extension == "tiff" || extension == "ico")
+					e.Effects = DragDropEffects.Move;
+			}
+
+			e.Handled = true;
+		}
+
+		/// <summary>Tells whether a drag is valid or not.</summary>
+		private void image_PreviewDragOver(object sender, DragEventArgs e)
+		{
+			e.Effects = DragDropEffects.None;
+
+			if (e.Data.GetDataPresent(DataFormats.FileDrop))
+			{
+				string imgPath = ((string[])e.Data.GetData(DataFormats.FileDrop))[0];
+
+				string extension = imgPath.Substring(imgPath.LastIndexOf('.') + 1).ToLower();
+
+				if (extension == "bmp" || extension == "jpg" || extension == "jpeg" || extension == "png" || extension == "gif" || extension == "tiff" || extension == "ico")
+					e.Effects = DragDropEffects.Move;
+			}
+
+			e.Handled = true;
+		}
+
+		/// <summary>Loads the dragged image.</summary>
+		private void image_PreviewDrop(object sender, DragEventArgs e)
+		{
+			string userMessage = string.Empty;
+
+			if (e.Data.GetDataPresent(DataFormats.FileDrop))
+			{
+				string imgPath = ((string[])e.Data.GetData(DataFormats.FileDrop))[0];
+
+				string extension = imgPath.Substring(imgPath.LastIndexOf('.') + 1).ToLower();
+
+				if (extension == "bmp" || extension == "jpg" || extension == "jpeg" || extension == "png" || extension == "gif" || extension == "tiff" || extension == "ico")
+				{
+					Image img = (Image)((Panel)sender).Children[1];
+					CardTypeField field = (CardTypeField)img.Tag;
+
+					int fieldIndex = 0;
+					while (CardData.CType.Fields[fieldIndex].ID != field.ID)
+					{
+						fieldIndex++;
+					}
+
+					string imgID = (string)CardData.Fields[fieldIndex];
+
+					if (string.IsNullOrEmpty(imgID))
+						CardData.Fields[fieldIndex] = imgID = CardManager.addCardImage(CardID, field.ID, Path, ref userMessage);
+
+					// resize image
+					var photoDecoder = BitmapDecoder.Create(
+						new Uri(imgPath),
+						BitmapCreateOptions.PreservePixelFormat,
+						BitmapCacheOption.None);
+					var photo = photoDecoder.Frames[0];
+
+					double mod = Math.Min(1d, Math.Min(img.MaxWidth / photo.PixelWidth, img.MaxHeight / photo.PixelHeight));
+
+					var target = new TransformedBitmap(
+						photo,
+						new ScaleTransform(
+							mod,
+							mod,
+							0, 0));
+					var thumbnail = BitmapFrame.Create(target);
+					
+					using (var fileStream = new System.IO.FileStream(@"current\" + imgID, System.IO.FileMode.Create))
+					{
+						BitmapEncoder encoder = new PngBitmapEncoder();
+						encoder.Frames.Add(thumbnail);
+						encoder.Save(fileStream);
+					}
+
+					// display image
+					img.Source = thumbnail;
+
+					// update card size
+					this.UpdateLayout();
+					MovedOrResized?.Invoke(this, null);
+				}
+			}
+
+			e.Handled = true;
+
+			if (!string.IsNullOrEmpty(userMessage))
+				MessageBox.Show(userMessage);
 		}
 
 		/// <summary>Updates the arrangement card IDs of all list items.</summary>
-		/// <returns>Any error messages.</returns>
-		public string updateListItemArrangementIDs()
+		/// <param name="userMessage">Any user messages.</param>
+		public void updateListItemArrangementIDs(ref string userMessage)
 		{
-			string errorMessage = string.Empty;
-
-			List<string> ids = CardManager.getArrangementListCardIDs(ArrangementCardID, Path, ref errorMessage);
+			List<string> ids = CardManager.getArrangementListCardIDs(ArrangementCardID, Path, ref userMessage);
 
 			int itemIndex = 0;
 			foreach (FrameworkElement ui in stkMain.Children)
@@ -334,15 +514,13 @@ namespace NotecardFront
 					itemIndex++;
 				}
 			}
-
-			return errorMessage;
 		}
 
 		/// <summary>Adds a new list item to a list field.</summary>
 		/// <param name="itemID">The database ID of the list item.</param>
 		/// <param name="listType">The list item's type.</param>
 		/// <returns>Any error messages.</returns>
-		private CardControl newListItem(string itemID, CardType listType, ArrangementCardList arrangementCard, ref string errorMessage)
+		private CardControl newListItem(string itemID, CardType listType, ArrangementCardList arrangementCard, ref string userMessage)
 		{
 			CardControl item = new CardControl()
 			{
@@ -350,7 +528,7 @@ namespace NotecardFront
 				CardID = itemID
 			};
 
-			errorMessage += item.refreshUI(new List<CardType>() { listType }, arrangementCard);
+			item.refreshUI(new List<CardType>() { listType }, arrangementCard, ref userMessage);
 
 			return item;
 		}
@@ -373,21 +551,19 @@ namespace NotecardFront
 		/// <summary>Adds a new list item to a list field.</summary>
 		private void btnAddListItem_Click(object sender, RoutedEventArgs e)
 		{
-			string errorMessage = string.Empty;
+			string userMessage = string.Empty;
 
 			Button btn = (Button)sender;
 			CardTypeField field = (CardTypeField)btn.Tag;
 
-			string id;
-			errorMessage += CardManager.newListItem(CardData, field, Path, out id);
+			string id = CardManager.newListItem(CardData, field, Path, ref userMessage);
 
-			Card newItem;
-			errorMessage += CardManager.getCard(id, Path, out newItem, new List<CardType>() { field.ListType });
+			Card newItem = CardManager.getCard(id, Path, new List<CardType>() { field.ListType }, ref userMessage);
 
 			int index = getFieldIndex(field.ID);
 			((List<Card>)CardData.Fields[index]).Add(newItem);
 			
-			CardControl c = newListItem(newItem.ID, field.ListType, null, ref errorMessage);
+			CardControl c = newListItem(newItem.ID, field.ListType, null, ref userMessage);
 
 			StackPanel pnl = (StackPanel)btn.Parent;
 			pnl.Children.Remove(btn);
@@ -397,31 +573,31 @@ namespace NotecardFront
 
 			refreshListItemBackColors(pnl);
 
-			if (!string.IsNullOrEmpty(errorMessage))
-				MessageBox.Show(errorMessage);
+			if (!string.IsNullOrEmpty(userMessage))
+				MessageBox.Show(userMessage);
 		}
 
 		/// <summary>Saves the value of a card field.</summary>
 		private void txtCardSearch_SelectionMade(UserControl sender, SearchBoxEventArgs e)
 		{
-			string errorMessage = string.Empty;
+			string userMessage = string.Empty;
 
 			int index = getFieldIndex((string)sender.Tag);
 
 			if ((string)CardData.Fields[index] != e.SelectedValue)
 			{
 				CardData.Fields[index] = e.SelectedValue;
-				errorMessage += CardManager.saveCardCardField(e.SelectedValue, CardData.ID, (string)sender.Tag, Path);
+				CardManager.saveCardCardField(e.SelectedValue, CardData.ID, (string)sender.Tag, Path, ref userMessage);
 			}
 
-			if (!string.IsNullOrEmpty(errorMessage))
-				MessageBox.Show(errorMessage);
+			if (!string.IsNullOrEmpty(userMessage))
+				MessageBox.Show(userMessage);
 		}
 
 		/// <summary>Saves the value of a text field.</summary>
 		public void txtField_LostKeyboardFocus(object sender, RoutedEventArgs e)
 		{
-			string errorMessage = string.Empty;
+			string userMessage = string.Empty;
 
 			TextBox txt = (TextBox)sender;
 
@@ -429,11 +605,11 @@ namespace NotecardFront
 			if ((string)CardData.Fields[index] != txt.Text)
 			{
 				CardData.Fields[index] = txt.Text;
-				errorMessage += CardManager.saveCardTextField(txt.Text, CardData.ID, (string)txt.Tag, Path);
+				CardManager.saveCardTextField(txt.Text, CardData.ID, (string)txt.Tag, Path, ref userMessage);
 			}
 
-			if (!string.IsNullOrEmpty(errorMessage))
-				MessageBox.Show(errorMessage);
+			if (!string.IsNullOrEmpty(userMessage))
+				MessageBox.Show(userMessage);
 		}
 
 		/// <summary>Archive the card.</summary>
@@ -447,14 +623,14 @@ namespace NotecardFront
 		/// <summary>Delete the card.</summary>
 		private void btnDeleteCard_Click(object sender, RoutedEventArgs e)
 		{
-			string errorMessage = string.Empty;
+			string userMessage = string.Empty;
 
 			((Canvas)this.Parent).Children.Remove(this);
 
-			errorMessage += CardManager.deleteCard(CardData.ID, Path);
+			CardManager.deleteCard(CardData.ID, Path, ref userMessage);
 
-			if (!string.IsNullOrEmpty(errorMessage))
-				MessageBox.Show(errorMessage);
+			if (!string.IsNullOrEmpty(userMessage))
+				MessageBox.Show(userMessage);
 		}
 
 		#region Move and Resize
@@ -563,7 +739,7 @@ namespace NotecardFront
 		/// <summary>Resize a text field.</summary>
 		private void textFieldResize_MouseMove(object sender, MouseEventArgs e)
 		{
-			string errorMessage = string.Empty;
+			string userMessage = string.Empty;
 
 			Rectangle textFieldResize = (Rectangle)sender;
 			TextBox textBox = (TextBox)textFieldResize.Tag;
@@ -574,7 +750,7 @@ namespace NotecardFront
 				textFieldResize.MouseMove -= textFieldResize_MouseMove;
 				Mouse.Capture(null);
 
-				errorMessage += CardManager.setFieldTextHeightIncrease(ArrangementCardID, (string)textBox.Tag, (int)Math.Round(textBox.ActualHeight), Path);
+				CardManager.setFieldTextHeightIncrease(ArrangementCardID, (string)textBox.Tag, (int)Math.Round(textBox.ActualHeight), Path, ref userMessage);
 
 				MovedOrResized?.Invoke(this, null);
 
@@ -598,8 +774,8 @@ namespace NotecardFront
 
 			this.Height = double.NaN;
 
-			if (!string.IsNullOrEmpty(errorMessage))
-				MessageBox.Show(errorMessage);
+			if (!string.IsNullOrEmpty(userMessage))
+				MessageBox.Show(userMessage);
 		}
 
 		#endregion Move and Resize

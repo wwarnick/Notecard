@@ -47,12 +47,6 @@ namespace NotecardFront
 		/// <summary>Each card type's ancestry.</summary>
 		Dictionary<string, List<CardType>> Ancestries;
 
-		/// <summary>The dialog used to save a file.</summary>
-		SaveFileDialog saveDialog;
-
-		/// <summary>The dialog used to open a file.</summary>
-		OpenFileDialog openDialog;
-
 		#endregion Members
 
 		#region Constructors
@@ -66,9 +60,8 @@ namespace NotecardFront
 
 			CardTypes = new Dictionary<string, CardType>();
 			Ancestries = new Dictionary<string, List<CardType>>();
-			saveDialog = new SaveFileDialog();
-			openDialog = new OpenFileDialog();
 
+			// start with an empty file
 			newFile(ref userMessage);
 			
 			if (!string.IsNullOrEmpty(userMessage))
@@ -117,6 +110,32 @@ namespace NotecardFront
 				foreach (DirectoryInfo dir in di.GetDirectories())
 				{
 					dir.Delete(true);
+				}
+			}
+			catch (Exception ex)
+			{
+				userMessage += ex.Message;
+			}
+		}
+
+		/// <summary>Removes orphaned files from the current directory.</summary>
+		/// <param name="userMessage">Any user messages.</param>
+		private void cleanOrphanedFiles(ref string userMessage)
+		{
+			List<string> imageIDs = CardManager.getImageIDs(this.Path, ref userMessage);
+
+			try
+			{
+				// make sure it exists
+				Directory.CreateDirectory("current");
+
+				// delete all orphaned files in it if it already exists
+				DirectoryInfo di = new DirectoryInfo("current");
+
+				foreach (FileInfo file in di.GetFiles())
+				{
+					if (!file.Name.EndsWith(".sqlite") && !imageIDs.Contains(file.Name))
+						file.Delete();
 				}
 			}
 			catch (Exception ex)
@@ -242,7 +261,7 @@ namespace NotecardFront
 			if (addToArrangement)
 			{
 				c.ArrangementCardID = CardManager.arrangementAddCard((string)lstArrangements.SelectedValue, cardID, 0, 0, (int)Math.Round(c.ActualWidth), Path, ref userMessage);
-				c.updateListItemArrangementIDs(ref userMessage);
+				c.updateFieldArrangementIDs(ref userMessage);
 			}
 		}
 
@@ -308,6 +327,8 @@ namespace NotecardFront
 		/// <param name="userMessage">Any user messages.</param>
 		private void refreshLines(ref string userMessage)
 		{
+			return;
+
 			List<string[]> connections = CardManager.getArrangementCardConnections((string)lstArrangements.SelectedValue, Path, ref userMessage);
 
 			// collect card positions
@@ -357,7 +378,8 @@ namespace NotecardFront
 					X2 = x2,
 					Y2 = y2,
 					Stroke = Brushes.Black,
-					StrokeThickness = 4
+					StrokeThickness = 4,
+					Tag = "line"
 				};
 
 				Canvas.SetLeft(line, Math.Min(point1.X, point2.X));
@@ -478,9 +500,14 @@ namespace NotecardFront
 		{
 			string userMessage = string.Empty;
 
+			SaveFileDialog saveDialog = new SaveFileDialog();
+			saveDialog.Filter = "NoteCard Files | *.crd";
+
+
 			if (saveDialog.ShowDialog() == true)
 			{
 				CardManager.vacuum(Path, ref userMessage);
+				cleanOrphanedFiles(ref userMessage);
 
 				try
 				{
@@ -511,6 +538,9 @@ namespace NotecardFront
 		private void btnOpen_Click(object sender, RoutedEventArgs e)
 		{
 			string userMessage = string.Empty;
+
+			OpenFileDialog openDialog = new OpenFileDialog();
+			openDialog.Filter = "NoteCard Files | *.crd";
 
 			if (openDialog.ShowDialog() == true)
 			{
@@ -597,6 +627,17 @@ namespace NotecardFront
 				items[lstArrangements.SelectedIndex].Text = txtArrangementName.Text;
 				lstArrangements.Items.Refresh();
 			}
+
+			if (!string.IsNullOrEmpty(userMessage))
+				MessageBox.Show(userMessage);
+		}
+
+		/// <summary>Clears out the current file.</summary>
+		private void MainWindow_Closing(object sender, System.ComponentModel.CancelEventArgs e)
+		{
+			string userMessage = string.Empty;
+
+			clearCurrentDir(ref userMessage);
 
 			if (!string.IsNullOrEmpty(userMessage))
 				MessageBox.Show(userMessage);

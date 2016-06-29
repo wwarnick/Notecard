@@ -52,7 +52,7 @@ namespace NotecardFront
 		/// <summary>The database ID of the card's settings for the current arrangement.</summary>
 		public string ArrangementCardID { get; set; }
 
-		/// <summary>How far the cursor is from the upper-left corner of the card.</summary>
+		/// <summary>How far the cursor is from the upper-left corner of the card when dragging.</summary>
 		private Point dragOffset;
 
 		/// <summary>The card's current highlight status.</summary>
@@ -65,6 +65,8 @@ namespace NotecardFront
 			set
 			{
 				highlight = value;
+
+				return;
 
 				switch (highlight)
 				{
@@ -216,23 +218,49 @@ namespace NotecardFront
 			{
 				foreach (CardTypeField f in ct.Fields)
 				{
-					Panel newPanel = null;
+					/*Panel newPanel = null;
 
 					TextBlock lbl = new TextBlock();
 					lbl.Text = f.Name;
 					lbl.VerticalAlignment = VerticalAlignment.Center;
-					lbl.Margin = new Thickness(5d);
+					lbl.Margin = new Thickness(5d);*/
 
 					switch (f.FieldType)
 					{
 						case DataType.Text:
 							{
 								// get height increase
-								int heightIncrease = (arrangementSettings != null)
-									? arrangementSettings.TextFields[textFieldIndex].HeightIncrease
-									: 0;
+								int heightIncrease = 0;
+								string arrangementCardID = null;
 
-								// create controls
+								if (arrangementSettings != null)
+								{
+									heightIncrease = arrangementSettings.TextFields[textFieldIndex].HeightIncrease;
+									arrangementCardID = arrangementSettings.ID;
+								}
+
+								TextField text = new TextField()
+								{
+									Path = this.Path,
+									CardID = this.CardID,
+									CardTypeFieldID = f.ID,
+									ArrangementCardID = arrangementCardID,
+									FieldIndex = fieldIndex,
+									Value = (string)CardData.Fields[fieldIndex],
+									LabelText = f.Name,
+									HeightIncrease = heightIncrease
+								};
+
+								text.ValueChanged += TextField_ValueChanged;
+								text.HeightChanged += TextField_HeightChanged;
+
+								// if title...
+								if (fieldIndex == 0 && CardData.CType.Context == CardTypeContext.Standalone)
+									text.setAsTitle(titleBrush);
+
+								text.refresh();
+
+								/*/ create controls
 								newPanel = new Grid();
 								newPanel.Tag = DataType.Text;
 								Grid grdPanel = (Grid)newPanel;
@@ -269,14 +297,33 @@ namespace NotecardFront
 								textFieldResize.MouseDown += textFieldResize_MouseDown;
 								Grid.SetRow(textFieldResize, 1);
 								Grid.SetColumn(textFieldResize, 1);
-								newPanel.Children.Add(textFieldResize);
+								newPanel.Children.Add(textFieldResize);*/
+
+								stkMain.Children.Add(text);
 
 								textFieldIndex++;
 							}
 							break;
 						case DataType.Card:
 							{
-								newPanel = new DockPanel();
+								CardField fCard = new CardField()
+								{
+									Path = this.Path,
+									CardID = this.CardID,
+									CardTypeFieldID = f.ID,
+									ArrangementCardID = ((arrangementSettings == null) ? null : arrangementSettings.ID),
+									FieldIndex = fieldIndex,
+									Value = (string)CardData.Fields[fieldIndex],
+									LabelText = f.Name,
+									FilterCardTypes = (string.IsNullOrEmpty(f.RefCardTypeID) ? null : CardManager.getCardTypeDescendents(f.RefCardTypeID, Path, ref userMessage))
+								};
+
+								fCard.ValueChanged += CardField_ValueChanged;
+
+								fCard.refresh(ref userMessage);
+
+
+								/*newPanel = new DockPanel();
 								newPanel.Tag = DataType.Card;
 								DockPanel.SetDock(lbl, Dock.Left);
 								newPanel.Children.Add(lbl);
@@ -295,14 +342,31 @@ namespace NotecardFront
 								if (!string.IsNullOrEmpty(f.RefCardTypeID))
 									txtCardSearch.CardTypes = CardManager.getCardTypeDescendents(f.RefCardTypeID, Path, ref userMessage);
 
-								newPanel.Children.Add(txtCardSearch);
+								newPanel.Children.Add(txtCardSearch);*/
+
+								stkMain.Children.Add(fCard);
 
 								cardFieldIndex++;
 							}
 							break;
 						case DataType.List:
 							{
-								newPanel = new DockPanel();
+								ListField list = new ListField()
+								{
+									Path = this.Path,
+									CardID = this.CardID,
+									CardTypeFieldID = f.ID,
+									ArrangementCardID = ((arrangementSettings == null) ? null : arrangementSettings.ID),
+									FieldIndex = fieldIndex,
+									Value = (List<Card>)CardData.Fields[fieldIndex],
+									ListType = f.ListType,
+									LabelText = f.Name
+								};
+
+								list.refresh(arrangementSettings, ref listFieldIndex, ref userMessage);
+
+
+								/*newPanel = new DockPanel();
 								newPanel.Tag = DataType.List;
 								DockPanel.SetDock(lbl, Dock.Top);
 								newPanel.Children.Add(lbl);
@@ -329,14 +393,31 @@ namespace NotecardFront
 
 								refreshListItemBackColors(pnlList);
 
-								newPanel.Children.Add(pnlList);
+								newPanel.Children.Add(pnlList);*/
 
-								listFieldIndex++;
+								stkMain.Children.Add(list);
+
+								//listFieldIndex++;
 							}
 							break;
 						case DataType.Image:
 							{
-								newPanel = new DockPanel();
+								ImageField image = new ImageField()
+								{
+									Path = this.Path,
+									CardID = this.CardID,
+									CardTypeFieldID = f.ID,
+									FieldIndex = fieldIndex,
+									Value = (string)CardData.Fields[fieldIndex],
+									LabelText = f.Name
+								};
+
+								image.Deleted += ImageField_Deleted;
+								image.Added += ImageField_Added;
+
+								image.refresh();
+
+								/*newPanel = new DockPanel();
 								newPanel.Tag = DataType.Image;
 								DockPanel.SetDock(lbl, Dock.Left);
 								newPanel.Children.Add(lbl);
@@ -353,6 +434,21 @@ namespace NotecardFront
 								newPanel.PreviewDrop += image_PreviewDrop;
 								newPanel.AllowDrop = true;
 
+								newPanel.MouseEnter += image_MouseEnter;
+								newPanel.MouseLeave += image_MouseLeave;
+
+								// delete button
+								Button btnDelImage = new Button()
+								{
+									HorizontalAlignment = HorizontalAlignment.Right,
+									VerticalAlignment = VerticalAlignment.Top,
+									Width = 20,
+									Height = 20,
+									Content = "X",
+									Tag = f
+								};
+								btnDelImage.Click += btnDelImage_Click;
+
 								string imgID = (string)CardData.Fields[fieldIndex];
 
 								// load current image
@@ -365,9 +461,22 @@ namespace NotecardFront
 									bmp.CacheOption = BitmapCacheOption.OnLoad;
 									bmp.EndInit();
 									image.Source = bmp;
+									btnDelImage.Visibility = Visibility.Hidden;
+								}
+								else
+								{
+									btnDelImage.Visibility = Visibility.Collapsed;
 								}
 
-								newPanel.Children.Add(image);
+								Grid grdImage = new Grid()
+								{
+									HorizontalAlignment = HorizontalAlignment.Center
+								};
+								grdImage.Children.Add(image);
+								grdImage.Children.Add(btnDelImage);
+								newPanel.Children.Add(grdImage);*/
+
+								stkMain.Children.Add(image);
 
 								imageFieldIndex++;
 							}
@@ -377,7 +486,7 @@ namespace NotecardFront
 							break;
 					}
 
-					// title field
+					/*/ title field
 					if (fieldIndex == 0 && CardData.CType.Context == CardTypeContext.Standalone)
 					{
 						newPanel.Background = titleBrush;
@@ -385,11 +494,85 @@ namespace NotecardFront
 						lbl.FontWeight = FontWeights.Bold;
 					}
 
-					stkMain.Children.Add(newPanel);
+					stkMain.Children.Add(newPanel);*/
 
 					fieldIndex++;
 				}
 			}
+		}
+
+		/// <summary>Updates the card field's value.</summary>
+		private void CardField_ValueChanged(object sender, EventArgs e)
+		{
+			CardField cf = (CardField)sender;
+			CardData.Fields[cf.FieldIndex] = cf.Value;
+		}
+
+		/// <summary>Update the text field's value.</summary>
+		private void TextField_ValueChanged(object sender, EventArgs e)
+		{
+			TextField text = (TextField)sender;
+			CardData.Fields[text.FieldIndex] = text.Value;
+		}
+
+		/// <summary>Update the text card's size.</summary>
+		private void TextField_HeightChanged(object sender, EventArgs e)
+		{
+			MovedOrResized?.Invoke(this, null);
+
+			//this.Height = double.NaN;
+		}
+
+		/// <summary>Updates the card size.</summary>
+		private void ImageField_Added(object sender, EventArgs e)
+		{
+			this.UpdateLayout();
+			MovedOrResized?.Invoke(this, null);
+		}
+
+		/// <summary>Update the value.</summary>
+		private void ImageField_Deleted(object sender, EventArgs e)
+		{
+			CardData.Fields[((ImageField)sender).FieldIndex] = null;
+		}
+
+		/*private void btnDelImage_Click(object sender, RoutedEventArgs e)
+		{
+			string userMessage = string.Empty;
+
+			Button btn = (Button)sender;
+			CardTypeField field = (CardTypeField)btn.Tag;
+			CardManager.removeCardImage(CardID, field.ID, Path, ref userMessage);
+
+			for (int i = 0; i < CardData.CType.Fields.Count; i++)
+			{
+				if (CardData.CType.Fields[i].ID == field.ID)
+				{
+					System.IO.FileInfo imgFile = new System.IO.FileInfo(@"current\" + (string)CardData.Fields[i]);
+					imgFile.Delete();
+					CardData.Fields[i] = null;
+					Panel imgPnl = (Panel)((Panel)stkMain.Children[i + 1]).Children[1];
+					((Image)imgPnl.Children[0]).Source = null;
+					((Button)imgPnl.Children[1]).Visibility = Visibility.Collapsed;
+				}
+			}
+
+			if (!string.IsNullOrEmpty(userMessage))
+				MessageBox.Show(userMessage);
+		}
+
+		private void image_MouseLeave(object sender, MouseEventArgs e)
+		{
+			Button btn = (Button)((Panel)((Panel)sender).Children[1]).Children[1];
+			if (btn.Visibility == Visibility.Visible)
+				btn.Visibility = Visibility.Hidden;
+		}
+
+		private void image_MouseEnter(object sender, MouseEventArgs e)
+		{
+			Button btn = (Button)((Panel)((Panel)sender).Children[1]).Children[1];
+			if (btn.Visibility == Visibility.Hidden)
+				btn.Visibility = Visibility.Visible;
 		}
 
 		/// <summary>Tells whether a drag is valid or not.</summary>
@@ -441,7 +624,7 @@ namespace NotecardFront
 
 				if (extension == "bmp" || extension == "jpg" || extension == "jpeg" || extension == "png" || extension == "gif" || extension == "tiff" || extension == "ico")
 				{
-					Image img = (Image)((Panel)sender).Children[1];
+					Image img = (Image)((Panel)((Panel)sender).Children[1]).Children[0];
 					CardTypeField field = (CardTypeField)img.Tag;
 
 					int fieldIndex = 0;
@@ -453,7 +636,10 @@ namespace NotecardFront
 					string imgID = (string)CardData.Fields[fieldIndex];
 
 					if (string.IsNullOrEmpty(imgID))
+					{
 						CardData.Fields[fieldIndex] = imgID = CardManager.addCardImage(CardID, field.ID, Path, ref userMessage);
+						((Button)((Panel)((Panel)sender).Children[1]).Children[1]).Visibility = Visibility.Visible;
+					}
 
 					// resize image
 					var photoDecoder = BitmapDecoder.Create(
@@ -492,124 +678,40 @@ namespace NotecardFront
 
 			if (!string.IsNullOrEmpty(userMessage))
 				MessageBox.Show(userMessage);
-		}
+		}*/
 
-		/// <summary>Updates the arrangement card IDs of all list items.</summary>
+		/// <summary>Updates the arrangement card IDs of all fields.</summary>
 		/// <param name="userMessage">Any user messages.</param>
-		public void updateListItemArrangementIDs(ref string userMessage)
+		public void updateFieldArrangementIDs(ref string userMessage)
 		{
 			List<string> ids = CardManager.getArrangementListCardIDs(ArrangementCardID, Path, ref userMessage);
 
 			int itemIndex = 0;
 			foreach (FrameworkElement ui in stkMain.Children)
 			{
-				if (ui.Tag == null || (DataType)ui.Tag != DataType.List)
+				if (ui.Tag == null)
 					continue;
 
-				Panel pnl = (Panel)((Panel)ui).Children[1];
-
-				for (int i = 0; i < pnl.Children.Count - 1; i++)
+				switch ((DataType)ui.Tag)
 				{
-					((CardControl)pnl.Children[i]).ArrangementCardID = ids[itemIndex];
-					itemIndex++;
+					case DataType.Text:
+						((TextField)ui).ArrangementCardID = this.ArrangementCardID;
+						break;
+					case DataType.Card:
+						((CardField)ui).ArrangementCardID = this.ArrangementCardID;
+						break;
+					case DataType.List:
+						((ListField)ui).ArrangementCardID = this.ArrangementCardID;
+						((ListField)ui).updateArrangementIDs(ids, ref itemIndex, ref userMessage);
+						break;
+					case DataType.Image:
+						// do nothing
+						break;
+					default:
+						userMessage += "Unknown data type: " + ((DataType)ui.Tag).ToString();
+						break;
 				}
 			}
-		}
-
-		/// <summary>Adds a new list item to a list field.</summary>
-		/// <param name="itemID">The database ID of the list item.</param>
-		/// <param name="listType">The list item's type.</param>
-		/// <returns>Any error messages.</returns>
-		private CardControl newListItem(string itemID, CardType listType, ArrangementCardList arrangementCard, ref string userMessage)
-		{
-			CardControl item = new CardControl()
-			{
-				Path = this.Path,
-				CardID = itemID
-			};
-
-			item.refreshUI(new List<CardType>() { listType }, arrangementCard, ref userMessage);
-
-			return item;
-		}
-
-		/// <summary>Sets the background colors of list items.</summary>
-		/// <param name="pnl">The list items' owning panel.</param>
-		private void refreshListItemBackColors(StackPanel pnl)
-		{
-			for (int i = 0; i < pnl.Children.Count - 1; i++)
-			{
-				CardControl c = (CardControl)pnl.Children[i];
-
-				if (i % 2 == 0)
-					c.Background = Brushes.White;
-				else
-					c.Background = Brushes.LightGray;
-			}
-		}
-
-		/// <summary>Adds a new list item to a list field.</summary>
-		private void btnAddListItem_Click(object sender, RoutedEventArgs e)
-		{
-			string userMessage = string.Empty;
-
-			Button btn = (Button)sender;
-			CardTypeField field = (CardTypeField)btn.Tag;
-
-			string id = CardManager.newListItem(CardData, field, Path, ref userMessage);
-
-			Card newItem = CardManager.getCard(id, Path, new List<CardType>() { field.ListType }, ref userMessage);
-
-			int index = getFieldIndex(field.ID);
-			((List<Card>)CardData.Fields[index]).Add(newItem);
-			
-			CardControl c = newListItem(newItem.ID, field.ListType, null, ref userMessage);
-
-			StackPanel pnl = (StackPanel)btn.Parent;
-			pnl.Children.Remove(btn);
-
-			pnl.Children.Add(c);
-			pnl.Children.Add(btn);
-
-			refreshListItemBackColors(pnl);
-
-			if (!string.IsNullOrEmpty(userMessage))
-				MessageBox.Show(userMessage);
-		}
-
-		/// <summary>Saves the value of a card field.</summary>
-		private void txtCardSearch_SelectionMade(UserControl sender, SearchBoxEventArgs e)
-		{
-			string userMessage = string.Empty;
-
-			int index = getFieldIndex((string)sender.Tag);
-
-			if ((string)CardData.Fields[index] != e.SelectedValue)
-			{
-				CardData.Fields[index] = e.SelectedValue;
-				CardManager.saveCardCardField(e.SelectedValue, CardData.ID, (string)sender.Tag, Path, ref userMessage);
-			}
-
-			if (!string.IsNullOrEmpty(userMessage))
-				MessageBox.Show(userMessage);
-		}
-
-		/// <summary>Saves the value of a text field.</summary>
-		public void txtField_LostKeyboardFocus(object sender, RoutedEventArgs e)
-		{
-			string userMessage = string.Empty;
-
-			TextBox txt = (TextBox)sender;
-
-			int index = getFieldIndex((string)txt.Tag);
-			if ((string)CardData.Fields[index] != txt.Text)
-			{
-				CardData.Fields[index] = txt.Text;
-				CardManager.saveCardTextField(txt.Text, CardData.ID, (string)txt.Tag, Path, ref userMessage);
-			}
-
-			if (!string.IsNullOrEmpty(userMessage))
-				MessageBox.Show(userMessage);
 		}
 
 		/// <summary>Archive the card.</summary>
@@ -727,55 +829,6 @@ namespace NotecardFront
 
 			Point cursor = e.MouseDevice.GetPosition(rResizeR);
 			this.Width = this.ActualWidth + cursor.X - dragOffset.X;
-		}
-
-		/// <summary>Prepare to resize a text field.</summary>
-		private void textFieldResize_MouseDown(object sender, MouseButtonEventArgs e)
-		{
-			e.Handled = true;
-			prepMoveResize((UIElement)sender, textFieldResize_MouseMove, e);
-		}
-
-		/// <summary>Resize a text field.</summary>
-		private void textFieldResize_MouseMove(object sender, MouseEventArgs e)
-		{
-			string userMessage = string.Empty;
-
-			Rectangle textFieldResize = (Rectangle)sender;
-			TextBox textBox = (TextBox)textFieldResize.Tag;
-
-			// stop resizing the card
-			if (e.LeftButton == MouseButtonState.Released)
-			{
-				textFieldResize.MouseMove -= textFieldResize_MouseMove;
-				Mouse.Capture(null);
-
-				CardManager.setFieldTextHeightIncrease(ArrangementCardID, (string)textBox.Tag, (int)Math.Round(textBox.ActualHeight), Path, ref userMessage);
-
-				MovedOrResized?.Invoke(this, null);
-
-				return;
-			}
-
-			Point cursor = e.MouseDevice.GetPosition(textFieldResize);
-
-			double newHeight = textBox.ActualHeight + cursor.Y - dragOffset.Y;
-
-			if (newHeight <= textBox.MinHeight)
-			{
-				textBox.TextWrapping = TextWrapping.NoWrap;
-				textBox.Height = textBox.MinHeight;
-			}
-			else
-			{
-				textBox.TextWrapping = TextWrapping.Wrap;
-				textBox.Height = newHeight;
-			}
-
-			this.Height = double.NaN;
-
-			if (!string.IsNullOrEmpty(userMessage))
-				MessageBox.Show(userMessage);
 		}
 
 		#endregion Move and Resize

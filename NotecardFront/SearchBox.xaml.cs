@@ -29,6 +29,13 @@ namespace NotecardFront
 		/// <summary>A comma-delimited list of card types to search. null to search all types.</summary>
 		public string CardTypes { get; set; }
 
+		/// <summary>Gets or sets the cursor that displays when the mouse pointer is over this element.</summary>
+		public new Cursor Cursor
+		{
+			get { return txtSearch.Cursor; }
+			set { txtSearch.Cursor = value; }
+		}
+
 		/// <summary>Fired when the user selects a card.</summary>
 		public event SearchBoxEventHandler SelectionMade;
 
@@ -48,6 +55,12 @@ namespace NotecardFront
 		#endregion Constructors
 
 		#region Events
+
+		/// <summary>Clears the search box.</summary>
+		public void clear()
+		{
+			txtSearch.Text = string.Empty;
+		}
 
 		/// <summary>Performs search and displays results.</summary>
 		private void txtSearch_TextChanged(object sender, TextChangedEventArgs e)

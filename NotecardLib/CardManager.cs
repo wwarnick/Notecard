@@ -1127,6 +1127,16 @@ namespace NotecardLib
 			execNonQuery(sql, path, ref userMessage, parameters);
 		}
 
+		/// <summary>Gets a list of all image ids.</summary>
+		/// <param name="path">The path of the current database.</param>
+		/// <param name="userMessage">Any user messages.</param>
+		/// <returns>A list of all image ids.</returns>
+		public static List<string> getImageIDs(string path, ref string userMessage)
+		{
+			string sql = "SELECT `id` FROM `field_image`;";
+			return execReadListField(sql, path, ref userMessage, (IEnumerable<SQLiteParameter>)null, "id");
+		}
+
 		/// <summary>Retrieves a card from the database.</summary>
 		/// <param name="id">The database id of the card.</param>
 		/// <param name="path">The path of the current database.</param>
@@ -1337,16 +1347,28 @@ namespace NotecardLib
 		/// <returns>The database ID of the list item.</returns>
 		public static string newListItem(Card card, CardTypeField cardTypeField, string path, ref string userMessage)
 		{
+			return newListItem(card.ID, cardTypeField.ID, cardTypeField.ListType, path, ref userMessage);
+		}
+
+		/// <summary>Adds a new list item.</summary>
+		/// <param name="cardID">The database ID of the card that owns the list.</param>
+		/// <param name="cardTypeFieldID">The database ID of the list field to add to.</param>
+		/// <param name="listType">The type of list item.</param>
+		/// <param name="path">The path of the current database.</param>
+		/// <param name="userMessage">Any user messages.</param>
+		/// <returns>The database ID of the list item.</returns>
+		public static string newListItem(string cardID, string cardTypeFieldID, CardType listType, string path, ref string userMessage)
+		{
 			// get next sort order
 			string sql = "SELECT COALESCE(MAX(`sort_order`), 0) + 1 AS `next_sort_order` FROM `field_list` WHERE `card_id` = @card_id AND `card_type_field_id` = @card_type_field_id;";
 			List<SQLiteParameter> parameters = new List<SQLiteParameter>();
-			parameters.Add(createParam("@card_id", DbType.Int64, card.ID));
-			parameters.Add(createParam("@card_type_field_id", DbType.Int64, cardTypeField.ID));
+			parameters.Add(createParam("@card_id", DbType.Int64, cardID));
+			parameters.Add(createParam("@card_type_field_id", DbType.Int64, cardTypeFieldID));
 
 			string orderResult = execReadField(sql, path, ref userMessage, parameters, "next_sort_order");
 
 			// add new card
-			string id = newCard(new List<CardType>() { cardTypeField.ListType }, path, ref userMessage);
+			string id = newCard(new List<CardType>() { listType }, path, ref userMessage);
 
 			// add field_list record
 			sql = @"

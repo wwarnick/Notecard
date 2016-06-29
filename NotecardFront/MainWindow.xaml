@@ -5,7 +5,8 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:NotecardFront"
         mc:Ignorable="d"
-        Title="NoteCard" Height="531.915" Width="837.851">
+        Title="NoteCard" Height="531.915" Width="837.851"
+        Closing="MainWindow_Closing">
     <Grid>
         <DockPanel>
             <Grid DockPanel.Dock="Top" Height="30" Background="LightBlue">

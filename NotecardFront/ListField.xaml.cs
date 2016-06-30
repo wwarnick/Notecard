@@ -68,18 +68,110 @@ namespace NotecardFront
 			// remove all but the label
 			stkMain.Children.RemoveRange(1, stkMain.Children.Count - 1);
 
+			bool notFirst = false;
 			foreach (Card c in this.Value)
 			{
+				// add switch button
+				if (notFirst)
+					stkMain.Children.Add(getNewSwitchButton());
+
 				ArrangementCardList l = (arrangementSettings == null) ? null : ((ArrangementCardStandalone)arrangementSettings).ListItems[listFieldIndex];
 				CardControl item = newListItem(c.ID, this.ListType, l, ref userMessage);
 				item.ArrangementCardID = (l != null) ? l.ID : CardManager.getArrangementListCardID(ArrangementCardID, item.CardID, Path, ref userMessage);
 				stkMain.Children.Add(item);
 
 				listFieldIndex++;
+				notFirst = true;
 			}
 
 			refreshListItemBackColors();
 			stkMain.Children.Add(btnAddItem);
+		}
+
+		/// <summary>Returns a new switch button.</summary>
+		/// <returns>A new switch button.</returns>
+		public Button getNewSwitchButton()
+		{
+			Button btnSwitch = new Button()
+			{
+				Content = "<>",
+				Tag = "switch"
+			};
+
+			btnSwitch.Click += btnSwitch_Click;
+
+			return btnSwitch;
+		}
+
+		/// <summary>Switches the list items around it.</summary>
+		private void btnSwitch_Click(object sender, RoutedEventArgs e)
+		{
+			string userMessage = string.Empty;
+
+			CardControl lastListItem = null;
+			CardControl nextListItem = null;
+			bool foundSwitch = false;
+
+			FrameworkElement[] reAdd = null;
+			int startIndex = 0;
+
+			
+			for (int i = 0; i < stkMain.Children.Count; i++)
+			{
+				FrameworkElement ui = (FrameworkElement)stkMain.Children[i];
+
+				if (reAdd == null || reAdd[0] == null)
+				{
+					switch ((string)ui.Tag)
+					{
+						case "label":
+						case "add":
+							// do nothing
+							break;
+						case "switch":
+							if (ui == sender)
+							{
+								foundSwitch = true;
+								startIndex = i - 1; // start with the item before the switch button
+								reAdd = new FrameworkElement[stkMain.Children.Count - startIndex];
+								reAdd[1] = ui;
+								reAdd[2] = nextListItem;
+							}
+							break;
+						default: // list item
+							lastListItem = nextListItem;
+							nextListItem = (CardControl)ui;
+
+							if (foundSwitch)
+							{
+								reAdd[0] = ui;
+
+								// preserve background colors
+								Brush temp = lastListItem.Background;
+								lastListItem.Background = nextListItem.Background;
+								nextListItem.Background = temp;
+							}
+							break;
+					}
+				}
+				else
+				{
+					reAdd[i - startIndex] = ui;
+				}
+			}
+
+			// put them back in
+			stkMain.Children.RemoveRange(startIndex, reAdd.Length);
+			foreach (FrameworkElement ui in reAdd)
+			{
+				stkMain.Children.Add(ui);
+			}
+
+			// apply change to database
+			CardManager.swapListItems(lastListItem.CardID, nextListItem.CardID, this.Path, ref userMessage);
+
+			if (!string.IsNullOrEmpty(userMessage))
+				MessageBox.Show(userMessage);
 		}
 
 		/// <summary>Adds a new list item to a list field.</summary>
@@ -102,14 +194,21 @@ namespace NotecardFront
 		/// <summary>Sets the background colors of list items.</summary>
 		private void refreshListItemBackColors()
 		{
-			for (int i = 1; i < stkMain.Children.Count - 1; i++)
+			int listItemIndex = 0;
+			for (int i = 0; i < stkMain.Children.Count; i++)
 			{
+				string tag = (string)((FrameworkElement)stkMain.Children[i]).Tag;
+				if (tag == "switch" || tag == "label" || tag == "add")
+					continue;
+
 				CardControl c = (CardControl)stkMain.Children[i];
 
-				if (i % 2 == 0)
-					c.Background = Brushes.White;
-				else
+				if (listItemIndex % 2 == 0)
 					c.Background = Brushes.LightGray;
+				else
+					c.Background = Brushes.White;
+
+				listItemIndex++;
 			}
 		}
 
@@ -130,6 +229,9 @@ namespace NotecardFront
 
 			stkMain.Children.Remove(btnAddItem);
 
+			if (this.Value.Count > 1)
+				stkMain.Children.Add(getNewSwitchButton());
+
 			stkMain.Children.Add(c);
 			stkMain.Children.Add(btnAddItem);
 
@@ -143,10 +245,16 @@ namespace NotecardFront
 		/// <param name="userMessage">Any user messages.</param>
 		public void updateArrangementIDs(List<string> ids, ref int itemIndex, ref string userMessage)
 		{
-			for (int i = 1; i < stkMain.Children.Count - 1; i++)
+			int listItemIndex = 0;
+			for (int i = 0; i < stkMain.Children.Count; i++)
 			{
-				((CardControl)stkMain.Children[i]).ArrangementCardID = ids[itemIndex];
+				string tag = (string)((FrameworkElement)stkMain.Children[i]).Tag;
+				if (tag == "switch" || tag == "label" || tag == "add")
+					continue;
+
+				((CardControl)stkMain.Children[listItemIndex]).ArrangementCardID = ids[itemIndex];
 				itemIndex++;
+				listItemIndex++;
 			}
 		}
 	}

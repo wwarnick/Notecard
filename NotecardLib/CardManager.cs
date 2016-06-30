@@ -362,9 +362,8 @@ namespace NotecardLib
 				case CardTypeChange.CardTypeFieldCardTypeChange:
 					changeCardTypeFieldCardType((string)change.Parameters[0], (string)change.Parameters[1], path, ref userMessage);
 					break;
-				case CardTypeChange.CardTypeFieldOrderChange:
-					sql = "UPDATE `card_type_field` SET `sort_order` = @sort_order WHERE `id` = @id;";
-					execNonQuery(sql, path, ref userMessage, createParam("@id", DbType.Int64, (string)change.Parameters[0]), createParam("@sort_order", DbType.Int64, (string)change.Parameters[1]));
+				case CardTypeChange.CardTypeFieldSwap:
+					swapCardTypeFields((string)change.Parameters[0], (string)change.Parameters[1], path, ref userMessage);
 					break;
 				case CardTypeChange.CardTypeFieldRemove:
 					removeCardTypeField((string)change.Parameters[0], path, ref userMessage);
@@ -715,6 +714,31 @@ namespace NotecardLib
 
 			parameters.Add(createParam("@card_type_field_id", DbType.Int64, fieldID));
 			execNonQuery(sql.ToString(), path, ref userMessage, parameters);
+		}
+
+		/// <summary>Swaps the sort order of two card type fields (the fields must be adjacent, and field 1 must be before field 2.</summary>
+		/// <param name="field1ID">The database ID of the first field.</param>
+		/// <param name="field2ID">The database ID of the second field.</param>
+		/// <param name="path">The pat of the current database.</param>
+		/// <param name="userMessage">Any user messages.</param>
+		private static void swapCardTypeFields(string field1ID, string field2ID, string path, ref string userMessage)
+		{
+			string sql = @"
+				UPDATE `card_type_field`
+				SET `sort_order` = (SELECT `sort_order` FROM `card_type_field` WHERE `id` = @id1)
+				WHERE `id` = @id2;
+
+				UPDATE `card_type_field`
+				SET `sort_order` = `sort_order` + 1
+				WHERE `id` = @id1;";
+
+			SQLiteParameter[] parameters = new SQLiteParameter[]
+				{
+					createParam("@id1", DbType.Int64, field1ID),
+					createParam("@id2", DbType.Int64, field2ID)
+				};
+
+			execNonQuery(sql, path, ref userMessage, parameters);
 		}
 
 		/// <summary>Removes a card type field from the database.</summary>
@@ -1397,6 +1421,31 @@ namespace NotecardLib
 			execNonQuery(sql, path, ref userMessage, parameters);
 
 			return id;
+		}
+
+		/// <summary>Swap two list items (the items must be adjacent and item1 must come before item2).</summary>
+		/// <param name="listItem1ID">The database ID of the first list item's card ID.</param>
+		/// <param name="listItem2ID">The database ID of the second list item's card ID.</param>
+		/// <param name="path">The path of the current database.</param>
+		/// <param name="userMessage">Any user messages.</param>
+		public static void swapListItems(string listItem1ID, string listItem2ID, string path, ref string userMessage)
+		{
+			string sql = @"
+				UPDATE `field_list`
+				SET `sort_order` = (SELECT `sort_order` FROM `field_list` WHERE `value` = @list_item1)
+				WHERE `value` = @list_item2;
+
+				UPDATE `field_list`
+				SET `sort_order` = `sort_order` + 1
+				WHERE `value` = @list_item1;";
+
+			SQLiteParameter[] parameters = new SQLiteParameter[]
+				{
+					createParam("@list_item1", DbType.Int64, listItem1ID),
+					createParam("@list_item2", DbType.Int64, listItem2ID)
+				};
+
+			execNonQuery(sql, path, ref userMessage, parameters);
 		}
 
 		/// <summary>Search for a specific string query.</summary>

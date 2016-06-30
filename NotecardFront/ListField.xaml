@@ -7,7 +7,7 @@
              mc:Ignorable="d" 
              d:DesignHeight="300" d:DesignWidth="300">
     <StackPanel Name="stkMain">
-        <TextBlock Name="lblName" Margin="5" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-        <Button Name="btnAddItem" Click="btnAddItem_Click">+</Button>
+        <TextBlock Name="lblName" Margin="5" VerticalAlignment="Center" HorizontalAlignment="Center" Tag="label"/>
+        <Button Name="btnAddItem" Click="btnAddItem_Click" Tag="add">+</Button>
     </StackPanel>
 </UserControl>

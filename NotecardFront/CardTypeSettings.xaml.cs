@@ -461,6 +461,50 @@ namespace NotecardFront
 			showMessages(userMessage);
 		}
 
+		private void btnMoveCardTypeFieldDown_Click(object sender, RoutedEventArgs e)
+		{
+			string userMessage = string.Empty;
+
+			if (lstCardTypeField.SelectedIndex < lstCardTypeField.Items.Count - 1)
+			{
+				int selected = lstCardTypeField.SelectedIndex;
+
+				string id1 = CurCardType.Fields[selected].ID;
+				string id2 = CurCardType.Fields[selected + 1].ID;
+
+				CardManager.saveCardType(CurCardType.ID, new CardTypeChg(CardTypeChange.CardTypeFieldSwap, id1, id2), Path, ref userMessage);
+
+				refreshCurCardType(ref userMessage);
+				refreshCardTypeFieldList(ref userMessage);
+				lstCardTypeField.SelectedIndex = selected + 1;
+			}
+
+			if (!string.IsNullOrEmpty(userMessage))
+				MessageBox.Show(userMessage);
+		}
+
+		private void btnMoveCardTypeFieldUp_Click(object sender, RoutedEventArgs e)
+		{
+			string userMessage = string.Empty;
+
+			if (lstCardTypeField.SelectedIndex > 0)
+			{
+				int selected = lstCardTypeField.SelectedIndex;
+
+				string id1 = CurCardType.Fields[selected - 1].ID;
+				string id2 = CurCardType.Fields[selected].ID;
+
+				CardManager.saveCardType(CurCardType.ID, new CardTypeChg(CardTypeChange.CardTypeFieldSwap, id1, id2), Path, ref userMessage);
+
+				refreshCurCardType(ref userMessage);
+				refreshCardTypeFieldList(ref userMessage);
+				lstCardTypeField.SelectedIndex = selected - 1;
+			}
+
+			if (!string.IsNullOrEmpty(userMessage))
+				MessageBox.Show(userMessage);
+		}
+
 		#endregion Card Type Field
 
 		#region List Field
@@ -577,6 +621,50 @@ namespace NotecardFront
 			}
 
 			showMessages(userMessage);
+		}
+
+		private void btnMoveListFieldDown_Click(object sender, RoutedEventArgs e)
+		{
+			string userMessage = string.Empty;
+
+			if (lstListField.SelectedIndex < lstListField.Items.Count - 1)
+			{
+				int selected = lstListField.SelectedIndex;
+
+				string id1 = CurCardType.Fields[lstCardTypeField.SelectedIndex].ListType.Fields[selected].ID;
+				string id2 = CurCardType.Fields[lstCardTypeField.SelectedIndex].ListType.Fields[selected + 1].ID;
+
+				CardManager.saveCardType(CurCardType.ID, new CardTypeChg(CardTypeChange.CardTypeFieldSwap, id1, id2), Path, ref userMessage);
+
+				refreshCurCardType(ref userMessage);
+				refreshListFieldList(ref userMessage);
+				lstListField.SelectedIndex = selected + 1;
+			}
+
+			if (!string.IsNullOrEmpty(userMessage))
+				MessageBox.Show(userMessage);
+		}
+
+		private void btnMoveListFieldUp_Click(object sender, RoutedEventArgs e)
+		{
+			string userMessage = string.Empty;
+
+			if (lstListField.SelectedIndex > 0)
+			{
+				int selected = lstListField.SelectedIndex;
+
+				string id1 = CurCardType.Fields[lstCardTypeField.SelectedIndex].ListType.Fields[selected - 1].ID;
+				string id2 = CurCardType.Fields[lstCardTypeField.SelectedIndex].ListType.Fields[selected].ID;
+
+				CardManager.saveCardType(CurCardType.ID, new CardTypeChg(CardTypeChange.CardTypeFieldSwap, id1, id2), Path, ref userMessage);
+
+				refreshCurCardType(ref userMessage);
+				refreshListFieldList(ref userMessage);
+				lstListField.SelectedIndex = selected - 1;
+			}
+
+			if (!string.IsNullOrEmpty(userMessage))
+				MessageBox.Show(userMessage);
 		}
 
 		#endregion List Field

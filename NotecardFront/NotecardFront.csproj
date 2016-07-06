@@ -70,6 +70,9 @@
     <Compile Include="CardField.xaml.cs">
       <DependentUpon>CardField.xaml</DependentUpon>
     </Compile>
+    <Compile Include="ListItemMenu.xaml.cs">
+      <DependentUpon>ListItemMenu.xaml</DependentUpon>
+    </Compile>
     <Compile Include="TextField.xaml.cs">
       <DependentUpon>TextField.xaml</DependentUpon>
     </Compile>
@@ -97,6 +100,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="CardField.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="ListItemMenu.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>

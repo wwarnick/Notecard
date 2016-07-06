@@ -49,9 +49,6 @@ namespace NotecardFront
 			set { lblName.Text = value; }
 		}
 
-		/// <summary>Called after the field is changed.</summary>
-		public event EventHandler Changed;
-
 		public ListField()
 		{
 			InitializeComponent();
@@ -65,15 +62,17 @@ namespace NotecardFront
 		/// <param name="userMessage">Any user messages.</param>
 		public void refresh(ArrangementCard arrangementSettings, ref int listFieldIndex, ref string userMessage)
 		{
+			// set btnAddItem color
+			btnAddItem.Background = Tools.colorToSum(ListType.ColorRed, ListType.ColorGreen, ListType.ColorBlue, 450);
+
 			// remove all but the label
 			stkMain.Children.RemoveRange(1, stkMain.Children.Count - 1);
 
 			bool notFirst = false;
 			foreach (Card c in this.Value)
 			{
-				// add switch button
-				if (notFirst)
-					stkMain.Children.Add(getNewSwitchButton());
+				// add switch and remove buttons
+				stkMain.Children.Add(getNewListItemMenu(notFirst));
 
 				ArrangementCardList l = (arrangementSettings == null) ? null : ((ArrangementCardStandalone)arrangementSettings).ListItems[listFieldIndex];
 				CardControl item = newListItem(c.ID, this.ListType, l, ref userMessage);
@@ -88,29 +87,33 @@ namespace NotecardFront
 			stkMain.Children.Add(btnAddItem);
 		}
 
-		/// <summary>Returns a new switch button.</summary>
-		/// <returns>A new switch button.</returns>
-		public Button getNewSwitchButton()
+		/// <summary>Returns a new list item menu.</summary>
+		/// <param name="includeSwitch">Whether or not to include the switch button.</param>
+		/// <returns>A new list item menu.</returns>
+		public ListItemMenu getNewListItemMenu(bool includeSwitch)
 		{
-			Button btnSwitch = new Button()
+			ListItemMenu menu = new ListItemMenu()
 			{
-				Content = "<>",
-				Tag = "switch"
+				Background = Tools.colorToSum(ListType.ColorRed, ListType.ColorGreen, ListType.ColorBlue, 450),
+				ForeColor = Brushes.White,
+				Tag = "menu",
+				IncludeSwitch = includeSwitch
 			};
 
-			btnSwitch.Click += btnSwitch_Click;
+			menu.Switch += Menu_Switch;
+			menu.RemoveItem += Menu_RemoveItem;
 
-			return btnSwitch;
+			return menu;
 		}
 
 		/// <summary>Switches the list items around it.</summary>
-		private void btnSwitch_Click(object sender, RoutedEventArgs e)
+		private void Menu_Switch(object sender, EventArgs e)
 		{
 			string userMessage = string.Empty;
 
 			CardControl lastListItem = null;
 			CardControl nextListItem = null;
-			bool foundSwitch = false;
+			bool foundMenu = false;
 
 			FrameworkElement[] reAdd = null;
 			int startIndex = 0;
@@ -120,7 +123,7 @@ namespace NotecardFront
 			{
 				FrameworkElement ui = (FrameworkElement)stkMain.Children[i];
 
-				if (reAdd == null || reAdd[0] == null)
+				if (reAdd?[0] == null)
 				{
 					switch ((string)ui.Tag)
 					{
@@ -128,10 +131,10 @@ namespace NotecardFront
 						case "add":
 							// do nothing
 							break;
-						case "switch":
+						case "menu":
 							if (ui == sender)
 							{
-								foundSwitch = true;
+								foundMenu = true;
 								startIndex = i - 1; // start with the item before the switch button
 								reAdd = new FrameworkElement[stkMain.Children.Count - startIndex];
 								reAdd[1] = ui;
@@ -142,7 +145,7 @@ namespace NotecardFront
 							lastListItem = nextListItem;
 							nextListItem = (CardControl)ui;
 
-							if (foundSwitch)
+							if (foundMenu)
 							{
 								reAdd[0] = ui;
 
@@ -174,6 +177,67 @@ namespace NotecardFront
 				MessageBox.Show(userMessage);
 		}
 
+		/// <summary>Removes the list item below it.</summary>
+		private void Menu_RemoveItem(object sender, EventArgs e)
+		{
+			string userMessage = string.Empty;
+
+			bool foundMenu = false;
+			CardControl toDelete = null;
+
+			FrameworkElement[] reAdd = null;
+			int startIndex = 0;
+
+			for (int i = 0; i < stkMain.Children.Count; i++)
+			{
+				FrameworkElement ui = (FrameworkElement)stkMain.Children[i];
+
+				if (reAdd == null)
+				{
+					switch ((string)ui.Tag)
+					{
+						case "label":
+						case "add":
+							// do nothing
+							break;
+						case "menu":
+							if (ui == sender)
+							{
+								foundMenu = true;
+								startIndex = i; // start delete with the menu
+							}
+							break;
+						default: // list item
+							if (foundMenu)
+							{
+								reAdd = new FrameworkElement[stkMain.Children.Count - startIndex - 2];
+								toDelete = (CardControl)ui;
+							}
+							break;
+					}
+				}
+				else
+				{
+					reAdd[i - startIndex - 2] = ui;
+				}
+			}
+
+			// put them back in
+			stkMain.Children.RemoveRange(startIndex, stkMain.Children.Count - startIndex);
+			foreach (FrameworkElement ui in reAdd)
+			{
+				stkMain.Children.Add(ui);
+			}
+
+			refreshListItemBackColors();
+
+			// apply change to database
+			CardManager.deleteCard(toDelete.CardID, this.Path, ref userMessage);
+
+			if (!string.IsNullOrEmpty(userMessage))
+				MessageBox.Show(userMessage);
+		}
+
 		/// <summary>Adds a new list item to a list field.</summary>
 		/// <param name="itemID">The database ID of the list item.</param>
 		/// <param name="listType">The list item's type.</param>
@@ -194,19 +258,22 @@ namespace NotecardFront
 		/// <summary>Sets the background colors of list items.</summary>
 		private void refreshListItemBackColors()
 		{
+			Brush brush1 = Tools.colorToSum(ListType.ColorRed, ListType.ColorGreen, ListType.ColorBlue, 600);
+			Brush brush2 = Tools.colorToSum(ListType.ColorRed, ListType.ColorGreen, ListType.ColorBlue, 725);
+
 			int listItemIndex = 0;
 			for (int i = 0; i < stkMain.Children.Count; i++)
 			{
 				string tag = (string)((FrameworkElement)stkMain.Children[i]).Tag;
-				if (tag == "switch" || tag == "label" || tag == "add")
+				if (tag == "menu" || tag == "label" || tag == "add")
 					continue;
 
 				CardControl c = (CardControl)stkMain.Children[i];
 
 				if (listItemIndex % 2 == 0)
-					c.Background = Brushes.LightGray;
+					c.Background = brush1;
 				else
-					c.Background = Brushes.White;
+					c.Background = brush2;
 
 				listItemIndex++;
 			}
@@ -229,8 +296,7 @@ namespace NotecardFront
 
 			stkMain.Children.Remove(btnAddItem);
 
-			if (this.Value.Count > 1)
-				stkMain.Children.Add(getNewSwitchButton());
+			stkMain.Children.Add(getNewListItemMenu(this.Value.Count > 1));
 
 			stkMain.Children.Add(c);
 			stkMain.Children.Add(btnAddItem);
@@ -249,7 +315,7 @@ namespace NotecardFront
 			for (int i = 0; i < stkMain.Children.Count; i++)
 			{
 				string tag = (string)((FrameworkElement)stkMain.Children[i]).Tag;
-				if (tag == "switch" || tag == "label" || tag == "add")
+				if (tag == "menu" || tag == "label" || tag == "add")
 					continue;
 
 				((CardControl)stkMain.Children[listItemIndex]).ArrangementCardID = ids[itemIndex];

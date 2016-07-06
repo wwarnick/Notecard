@@ -8,6 +8,6 @@
              d:DesignHeight="300" d:DesignWidth="300">
     <StackPanel Name="stkMain">
         <TextBlock Name="lblName" Margin="5" VerticalAlignment="Center" HorizontalAlignment="Center" Tag="label"/>
-        <Button Name="btnAddItem" Click="btnAddItem_Click" Tag="add">+</Button>
+        <Button Name="btnAddItem" MaxHeight="15" Foreground="White" FontWeight="Bold" BorderBrush="Transparent" BorderThickness="0" Click="btnAddItem_Click" Tag="add">+</Button>
     </StackPanel>
 </UserControl>

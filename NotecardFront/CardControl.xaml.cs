@@ -160,8 +160,35 @@ namespace NotecardFront
 			// add title bar
 			if (CardData.CType.Context == CardTypeContext.Standalone)
 			{
+				// add resize borders
+				Rectangle rResizeL = new Rectangle()
+				{
+					Cursor = Cursors.SizeWE,
+					Width = 5d,
+					Fill = Brushes.Transparent
+				};
+				rResizeL.MouseDown += rResizeL_MouseDown;
+
+				Rectangle rResizeR = new Rectangle()
+				{
+					Cursor = Cursors.SizeWE,
+					Width = 5d,
+					Fill = Brushes.Transparent
+				};
+				Grid.SetColumn(rResizeR, 2);
+				rResizeR.MouseDown += rResizeR_MouseDown;
+
+				grdBase.Children.Add(rResizeL);
+				grdBase.Children.Add(rResizeR);
+
+				// get title bar color
+				titleBrush = new SolidColorBrush(Color.FromRgb(CardData.CType.ColorRed, CardData.CType.ColorGreen, CardData.CType.ColorBlue));
+
 				// prepare title bar
-				Grid grdTitleBar = new Grid();
+				Grid grdTitleBar = new Grid()
+				{
+					Background = titleBrush
+				};
 				ColumnDefinition col = new ColumnDefinition();
 				col.Width = new GridLength(1d, GridUnitType.Star);
 				grdTitleBar.ColumnDefinitions.Add(col);
@@ -172,30 +199,41 @@ namespace NotecardFront
 				col.Width = new GridLength(20d);
 				grdTitleBar.ColumnDefinitions.Add(col);
 
-				// get title bar color
-				titleBrush = new SolidColorBrush(Color.FromRgb(CardData.CType.ColorRed, CardData.CType.ColorGreen, CardData.CType.ColorBlue));
-
 				// show card type
 				TextBlock lblCardType = new TextBlock()
 				{
-					Background = titleBrush,
 					Foreground = Brushes.White,
 					FontSize = 10d,
 					Padding = new Thickness(3, 0, 0, 0),
+					FontWeight = FontWeights.Bold,
 					Text = CardData.CType.Name
 				};
 				grdTitleBar.Children.Add(lblCardType);
 
 				// archive button
-				Button btnArchive = new Button();
-				btnArchive.Content = "-";
+				Button btnArchive = new Button()
+				{
+					BorderThickness = new Thickness(0d),
+					BorderBrush = Brushes.Transparent,
+					Background = Brushes.Transparent,
+					Foreground = Brushes.White,
+					FontWeight = FontWeights.Bold,
+					Content = "-"
+				};
 				btnArchive.Click += btnArchive_Click;
 				Grid.SetColumn(btnArchive, 1);
 				grdTitleBar.Children.Add(btnArchive);
 
 				// delete button
-				Button btnDeleteCard = new Button();
-				btnDeleteCard.Content = "X";
+				Button btnDeleteCard = new Button()
+				{
+					BorderThickness = new Thickness(0d),
+					BorderBrush = Brushes.Transparent,
+					Background = Brushes.Transparent,
+					Foreground = Brushes.White,
+					FontWeight = FontWeights.Bold,
+					Content = "X"
+				};
 				btnDeleteCard.Click += btnDeleteCard_Click;
 				Grid.SetColumn(btnDeleteCard, 2);
 				grdTitleBar.Children.Add(btnDeleteCard);
@@ -218,13 +256,6 @@ namespace NotecardFront
 			{
 				foreach (CardTypeField f in ct.Fields)
 				{
-					/*Panel newPanel = null;
-
-					TextBlock lbl = new TextBlock();
-					lbl.Text = f.Name;
-					lbl.VerticalAlignment = VerticalAlignment.Center;
-					lbl.Margin = new Thickness(5d);*/
-
 					switch (f.FieldType)
 					{
 						case DataType.Text:
@@ -259,46 +290,6 @@ namespace NotecardFront
 									text.setAsTitle(titleBrush);
 
 								text.refresh();
-
-								/*/ create controls
-								newPanel = new Grid();
-								newPanel.Tag = DataType.Text;
-								Grid grdPanel = (Grid)newPanel;
-								grdPanel.ColumnDefinitions.Add(new ColumnDefinition() { Width = GridLength.Auto });
-								grdPanel.ColumnDefinitions.Add(new ColumnDefinition() { Width = new GridLength(1d, GridUnitType.Star) });
-								grdPanel.RowDefinitions.Add(new RowDefinition() { Height = new GridLength(1d, GridUnitType.Star) });
-								grdPanel.RowDefinitions.Add(new RowDefinition() { Height = new GridLength(5d) });
-								newPanel.Children.Add(lbl);
-
-								TextBox txt = new TextBox()
-								{
-									MinHeight = 20d,
-									Height = MinHeight + heightIncrease,
-									MinWidth = 100d,
-									Text = (string)CardData.Fields[fieldIndex],
-									TextWrapping = (heightIncrease == 0) ? TextWrapping.NoWrap : TextWrapping.Wrap,
-									Tag = f.ID,
-									Margin = new Thickness(0d, 5d, 10d, 0d),
-									AcceptsReturn = true,
-									VerticalScrollBarVisibility = ScrollBarVisibility.Auto
-								};
-
-								txt.LostKeyboardFocus += txtField_LostKeyboardFocus;
-								Grid.SetColumn(txt, 1);
-								newPanel.Children.Add(txt);
-
-								Rectangle textFieldResize = new Rectangle()
-								{
-									Margin = new Thickness(0d, 0d, 10d, 0d),
-									Fill = Brushes.Transparent,
-									Tag = txt,
-									Cursor = Cursors.SizeNS
-								};
-								textFieldResize.MouseDown += textFieldResize_MouseDown;
-								Grid.SetRow(textFieldResize, 1);
-								Grid.SetColumn(textFieldResize, 1);
-								newPanel.Children.Add(textFieldResize);*/
-
 								stkMain.Children.Add(text);
 
 								textFieldIndex++;
@@ -319,31 +310,7 @@ namespace NotecardFront
 								};
 
 								fCard.ValueChanged += CardField_ValueChanged;
-
 								fCard.refresh(ref userMessage);
-
-
-								/*newPanel = new DockPanel();
-								newPanel.Tag = DataType.Card;
-								DockPanel.SetDock(lbl, Dock.Left);
-								newPanel.Children.Add(lbl);
-
-								SearchSelect txtCardSearch = new SearchSelect()
-								{
-									Height = 20d,
-									MinWidth = 100d,
-									Path = Path,
-									SelectedValue = (string)CardData.Fields[fieldIndex],
-									Tag = f.ID,
-									Margin = new Thickness(0d, 5d, 10d, 5d)
-								};
-								txtCardSearch.SelectionMade += txtCardSearch_SelectionMade;
-
-								if (!string.IsNullOrEmpty(f.RefCardTypeID))
-									txtCardSearch.CardTypes = CardManager.getCardTypeDescendents(f.RefCardTypeID, Path, ref userMessage);
-
-								newPanel.Children.Add(txtCardSearch);*/
-
 								stkMain.Children.Add(fCard);
 
 								cardFieldIndex++;
@@ -365,39 +332,7 @@ namespace NotecardFront
 
 								list.refresh(arrangementSettings, ref listFieldIndex, ref userMessage);
 
-
-								/*newPanel = new DockPanel();
-								newPanel.Tag = DataType.List;
-								DockPanel.SetDock(lbl, Dock.Top);
-								newPanel.Children.Add(lbl);
-
-								List<Card> items = (List<Card>)CardData.Fields[fieldIndex];
-								StackPanel pnlList = new StackPanel();
-
-								foreach (Card c in items)
-								{
-									ArrangementCardList l = (arrangementSettings == null) ? null : ((ArrangementCardStandalone)arrangementSettings).ListItems[listFieldIndex];
-									CardControl item = newListItem(c.ID, f.ListType, l, ref userMessage);
-									item.ArrangementCardID = CardManager.getArrangementListCardID(ArrangementCardID, item.CardID, Path, ref userMessage);
-									pnlList.Children.Add(item);
-								}
-
-								Button btnListAddItem = new Button()
-								{
-									Content = "+",
-									Tag = f
-								};
-
-								btnListAddItem.Click += btnAddListItem_Click;
-								pnlList.Children.Add(btnListAddItem);
-
-								refreshListItemBackColors(pnlList);
-
-								newPanel.Children.Add(pnlList);*/
-
 								stkMain.Children.Add(list);
-
-								//listFieldIndex++;
 							}
 							break;
 						case DataType.Image:
@@ -414,68 +349,7 @@ namespace NotecardFront
 
 								image.Deleted += ImageField_Deleted;
 								image.Added += ImageField_Added;
-
 								image.refresh();
-
-								/*newPanel = new DockPanel();
-								newPanel.Tag = DataType.Image;
-								DockPanel.SetDock(lbl, Dock.Left);
-								newPanel.Children.Add(lbl);
-
-								Image image = new Image()
-								{
-									MaxHeight = 200,
-									MaxWidth = 200,
-									Tag = f
-								};
-								newPanel.Background = Brushes.Transparent;
-								newPanel.PreviewDragEnter += image_PreviewDragEnter;
-								newPanel.PreviewDragOver += image_PreviewDragOver;
-								newPanel.PreviewDrop += image_PreviewDrop;
-								newPanel.AllowDrop = true;
-
-								newPanel.MouseEnter += image_MouseEnter;
-								newPanel.MouseLeave += image_MouseLeave;
-
-								// delete button
-								Button btnDelImage = new Button()
-								{
-									HorizontalAlignment = HorizontalAlignment.Right,
-									VerticalAlignment = VerticalAlignment.Top,
-									Width = 20,
-									Height = 20,
-									Content = "X",
-									Tag = f
-								};
-								btnDelImage.Click += btnDelImage_Click;
-
-								string imgID = (string)CardData.Fields[fieldIndex];
-
-								// load current image
-								if (!string.IsNullOrEmpty(imgID))
-								{
-									BitmapImage bmp = new BitmapImage();
-									bmp.BeginInit();
-									bmp.UriSource = new Uri(@"current\" + imgID, UriKind.Relative);
-									bmp.CreateOptions = BitmapCreateOptions.IgnoreImageCache;
-									bmp.CacheOption = BitmapCacheOption.OnLoad;
-									bmp.EndInit();
-									image.Source = bmp;
-									btnDelImage.Visibility = Visibility.Hidden;
-								}
-								else
-								{
-									btnDelImage.Visibility = Visibility.Collapsed;
-								}
-
-								Grid grdImage = new Grid()
-								{
-									HorizontalAlignment = HorizontalAlignment.Center
-								};
-								grdImage.Children.Add(image);
-								grdImage.Children.Add(btnDelImage);
-								newPanel.Children.Add(grdImage);*/
-
 								stkMain.Children.Add(image);
 
 								imageFieldIndex++;
@@ -485,16 +359,6 @@ namespace NotecardFront
 							MessageBox.Show("Unknown field type: " + f.FieldType.ToString());
 							break;
 					}
-
-					/*/ title field
-					if (fieldIndex == 0 && CardData.CType.Context == CardTypeContext.Standalone)
-					{
-						newPanel.Background = titleBrush;
-						lbl.Foreground = Brushes.White;
-						lbl.FontWeight = FontWeights.Bold;
-					}
-
-					stkMain.Children.Add(newPanel);*/
 
 					fieldIndex++;
 				}
@@ -535,150 +399,6 @@ namespace NotecardFront
 		{
 			CardData.Fields[((ImageField)sender).FieldIndex] = null;
 		}
-
-		/*private void btnDelImage_Click(object sender, RoutedEventArgs e)
-		{
-			string userMessage = string.Empty;
-
-			Button btn = (Button)sender;
-			CardTypeField field = (CardTypeField)btn.Tag;
-			CardManager.removeCardImage(CardID, field.ID, Path, ref userMessage);
-
-			for (int i = 0; i < CardData.CType.Fields.Count; i++)
-			{
-				if (CardData.CType.Fields[i].ID == field.ID)
-				{
-					System.IO.FileInfo imgFile = new System.IO.FileInfo(@"current\" + (string)CardData.Fields[i]);
-					imgFile.Delete();
-					CardData.Fields[i] = null;
-					Panel imgPnl = (Panel)((Panel)stkMain.Children[i + 1]).Children[1];
-					((Image)imgPnl.Children[0]).Source = null;
-					((Button)imgPnl.Children[1]).Visibility = Visibility.Collapsed;
-				}
-			}
-
-			if (!string.IsNullOrEmpty(userMessage))
-				MessageBox.Show(userMessage);
-		}
-
-		private void image_MouseLeave(object sender, MouseEventArgs e)
-		{
-			Button btn = (Button)((Panel)((Panel)sender).Children[1]).Children[1];
-			if (btn.Visibility == Visibility.Visible)
-				btn.Visibility = Visibility.Hidden;
-		}
-
-		private void image_MouseEnter(object sender, MouseEventArgs e)
-		{
-			Button btn = (Button)((Panel)((Panel)sender).Children[1]).Children[1];
-			if (btn.Visibility == Visibility.Hidden)
-				btn.Visibility = Visibility.Visible;
-		}
-
-		/// <summary>Tells whether a drag is valid or not.</summary>
-		private void image_PreviewDragEnter(object sender, DragEventArgs e)
-		{
-			e.Effects = DragDropEffects.None;
-
-			if (e.Data.GetDataPresent(DataFormats.FileDrop))
-			{
-				string imgPath = ((string[])e.Data.GetData(DataFormats.FileDrop))[0];
-
-				string extension = imgPath.Substring(imgPath.LastIndexOf('.') + 1).ToLower();
-
-				if (extension == "bmp" || extension == "jpg" || extension == "jpeg" || extension == "png" || extension == "gif" || extension == "tiff" || extension == "ico")
-					e.Effects = DragDropEffects.Move;
-			}
-
-			e.Handled = true;
-		}
-
-		/// <summary>Tells whether a drag is valid or not.</summary>
-		private void image_PreviewDragOver(object sender, DragEventArgs e)
-		{
-			e.Effects = DragDropEffects.None;
-
-			if (e.Data.GetDataPresent(DataFormats.FileDrop))
-			{
-				string imgPath = ((string[])e.Data.GetData(DataFormats.FileDrop))[0];
-
-				string extension = imgPath.Substring(imgPath.LastIndexOf('.') + 1).ToLower();
-
-				if (extension == "bmp" || extension == "jpg" || extension == "jpeg" || extension == "png" || extension == "gif" || extension == "tiff" || extension == "ico")
-					e.Effects = DragDropEffects.Move;
-			}
-
-			e.Handled = true;
-		}
-
-		/// <summary>Loads the dragged image.</summary>
-		private void image_PreviewDrop(object sender, DragEventArgs e)
-		{
-			string userMessage = string.Empty;
-
-			if (e.Data.GetDataPresent(DataFormats.FileDrop))
-			{
-				string imgPath = ((string[])e.Data.GetData(DataFormats.FileDrop))[0];
-
-				string extension = imgPath.Substring(imgPath.LastIndexOf('.') + 1).ToLower();
-
-				if (extension == "bmp" || extension == "jpg" || extension == "jpeg" || extension == "png" || extension == "gif" || extension == "tiff" || extension == "ico")
-				{
-					Image img = (Image)((Panel)((Panel)sender).Children[1]).Children[0];
-					CardTypeField field = (CardTypeField)img.Tag;
-
-					int fieldIndex = 0;
-					while (CardData.CType.Fields[fieldIndex].ID != field.ID)
-					{
-						fieldIndex++;
-					}
-
-					string imgID = (string)CardData.Fields[fieldIndex];
-
-					if (string.IsNullOrEmpty(imgID))
-					{
-						CardData.Fields[fieldIndex] = imgID = CardManager.addCardImage(CardID, field.ID, Path, ref userMessage);
-						((Button)((Panel)((Panel)sender).Children[1]).Children[1]).Visibility = Visibility.Visible;
-					}
-
-					// resize image
-					var photoDecoder = BitmapDecoder.Create(
-						new Uri(imgPath),
-						BitmapCreateOptions.PreservePixelFormat,
-						BitmapCacheOption.None);
-					var photo = photoDecoder.Frames[0];
-
-					double mod = Math.Min(1d, Math.Min(img.MaxWidth / photo.PixelWidth, img.MaxHeight / photo.PixelHeight));
-
-					var target = new TransformedBitmap(
-						photo,
-						new ScaleTransform(
-							mod,
-							mod,
-							0, 0));
-					var thumbnail = BitmapFrame.Create(target);
-					
-					using (var fileStream = new System.IO.FileStream(@"current\" + imgID, System.IO.FileMode.Create))
-					{
-						BitmapEncoder encoder = new PngBitmapEncoder();
-						encoder.Frames.Add(thumbnail);
-						encoder.Save(fileStream);
-					}
-
-					// display image
-					img.Source = thumbnail;
-
-					// update card size
-					this.UpdateLayout();
-					MovedOrResized?.Invoke(this, null);
-				}
-			}
-
-			e.Handled = true;
-
-			if (!string.IsNullOrEmpty(userMessage))
-				MessageBox.Show(userMessage);
-		}*/
 
 		/// <summary>Updates the arrangement card IDs of all fields.</summary>
 		/// <param name="userMessage">Any user messages.</param>
@@ -782,12 +502,14 @@ namespace NotecardFront
 		/// <summary>Prepare to resize the card to the left.</summary>
 		private void rResizeL_MouseDown(object sender, MouseButtonEventArgs e)
 		{
-			prepMoveResize(rResizeL, rResizeL_MouseMove, e);
+			prepMoveResize((Rectangle)sender, rResizeL_MouseMove, e);
 		}
 
 		/// <summary>Resize the card to the left.</summary>
 		private void rResizeL_MouseMove(object sender, MouseEventArgs e)
 		{
+			Rectangle rResizeL = (Rectangle)sender;
+
 			// stop resizing the card
 			if (e.LeftButton == MouseButtonState.Released)
 			{
@@ -810,12 +532,14 @@ namespace NotecardFront
 		/// <summary>Prepare to resize the card to the right.</summary>
 		private void rResizeR_MouseDown(object sender, MouseButtonEventArgs e)
 		{
-			prepMoveResize(rResizeR, rResizeR_MouseMove, e);
+			prepMoveResize((Rectangle)sender, rResizeR_MouseMove, e);
 		}
 
 		/// <summary>Resize the card to the right.</summary>
 		private void rResizeR_MouseMove(object sender, MouseEventArgs e)
 		{
+			Rectangle rResizeR = (Rectangle)sender;
+
 			// stop resizing the card
 			if (e.LeftButton == MouseButtonState.Released)
 			{

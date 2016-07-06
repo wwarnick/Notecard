@@ -666,6 +666,14 @@ namespace NotecardLib
 
 			// execute sql
 			execNonQuery(sql.ToString(), path, ref userMessage, parameters);
+
+			// if it's a list, add the first field
+			if (newType == DataType.List)
+			{
+				string tempSql = "SELECT `ref_card_type_id` FROM `card_type_field` WHERE `id` = @card_type_field_id;";
+				string id = execReadField(tempSql, path, ref userMessage, createParam("@card_type_field_id", DbType.Int64, fieldID), "ref_card_type_id");
+				saveCardType(id, new CardTypeChg(CardTypeChange.CardTypeFieldAdd, "Field 1"), path, ref userMessage);
+			}
 		}
 
 		/// <summary>Changes a field's referred card type ID (for Card type fields).</summary>
@@ -820,7 +828,10 @@ namespace NotecardLib
 
 				// get list type
 				if (field.FieldType == DataType.List)
+				{
 					field.ListType = getCardType(field.RefCardTypeID, path, ref userMessage);
+					field.ListType.Color = cardType.Color; // give it the same color as its owner
+				}
 
 				cardType.Fields.Add(field);
 			}

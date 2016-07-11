@@ -63,6 +63,13 @@ namespace NotecardFront
 
 			// the current card type
 			CurCardType = null;
+
+			// add drop shadow effect
+			var shadow = new System.Windows.Media.Effects.DropShadowEffect();
+			shadow.ShadowDepth = 10d;
+			shadow.BlurRadius = 10d;
+			shadow.Color = Color.FromRgb(200, 200, 200);//Colors.Gray;
+			this.Effect = shadow;
 		}
 
 		#region Methods
@@ -411,6 +418,8 @@ namespace NotecardFront
 				txtCardTypeFieldName.Text = string.Empty;
 				cmbCardTypeFieldType.SelectedValue = null;
 				cmbCardTypeFieldCardType.SelectedValue = null;
+				chkCardTypeFieldShowLabel.IsChecked = true;
+
 				grdCardTypeField.IsEnabled = false;
 			}
 			else
@@ -420,6 +429,7 @@ namespace NotecardFront
 				txtCardTypeFieldName.Text = ctf.Name;
 				cmbCardTypeFieldType.SelectedValue = ((int)ctf.FieldType).ToString();
 				cmbCardTypeFieldCardType.SelectedValue = (ctf.FieldType != DataType.Card) ? null : string.IsNullOrEmpty(ctf.RefCardTypeID) ? string.Empty : ctf.RefCardTypeID;
+				chkCardTypeFieldShowLabel.IsChecked = ctf.ShowLabel;
 
 				grdCardTypeField.IsEnabled = true;
 			}
@@ -459,6 +469,25 @@ namespace NotecardFront
 			}
 
 			showMessages(userMessage);
+		}
+
+		private void chkCardTypeFieldShowLabel_CheckedChanged(object sender, RoutedEventArgs e)
+		{
+			string userMessage = string.Empty;
+
+			if (!string.IsNullOrEmpty((string)lstCardTypeField.SelectedValue) && chkCardTypeFieldShowLabel.IsFocused)
+			{
+				CardTypeField field = CurCardType.Fields[lstCardTypeField.SelectedIndex];
+
+				if (field.ShowLabel != chkCardTypeFieldShowLabel.IsChecked)
+				{
+					CardManager.saveCardType((string)lstCardType.SelectedValue, new CardTypeChg(CardTypeChange.CardTypeFieldShowLabelChange, (string)lstCardTypeField.SelectedValue, chkCardTypeFieldShowLabel.IsChecked), Path, ref userMessage);
+					refreshCurCardType(ref userMessage);
+				}
+			}
+
+			if (!string.IsNullOrEmpty(userMessage))
+				MessageBox.Show(userMessage);
 		}
 
 		private void btnMoveCardTypeFieldDown_Click(object sender, RoutedEventArgs e)
@@ -621,6 +650,25 @@ namespace NotecardFront
 			}
 
 			showMessages(userMessage);
+		}
+
+		private void chkListFieldShowLabel_CheckedChanged(object sender, RoutedEventArgs e)
+		{
+			string userMessage = string.Empty;
+
+			/*if (!string.IsNullOrEmpty((string)lstCardTypeField.SelectedValue) && chkCardTypeFieldShowLabel.IsFocused)
+			{
+				CardTypeField field = CurCardType.Fields[lstCardTypeField.SelectedIndex];
+
+				if (field.ShowLabel != chkCardTypeFieldShowLabel.IsChecked)
+				{
+					CardManager.saveCardType((string)lstCardType.SelectedValue, new CardTypeChg(CardTypeChange.CardTypeFieldShowLabelChange, (string)lstCardTypeField.SelectedValue, chkCardTypeFieldShowLabel.IsChecked), Path, ref userMessage);
+					refreshCurCardType(ref userMessage);
+				}
+			}*/
+
+			if (!string.IsNullOrEmpty(userMessage))
+				MessageBox.Show(userMessage);
 		}
 
 		private void btnMoveListFieldDown_Click(object sender, RoutedEventArgs e)

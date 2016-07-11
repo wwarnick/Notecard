@@ -98,6 +98,28 @@ namespace NotecardFront
 			}
 		}
 
+		/// <summary>Whether or not the card control is minimized (shows only the first field).</summary>
+		private bool minimized;
+
+		/// <summary>Whether or not the card control is minimized (shows only the first field).</summary>
+		public bool Minimized
+		{
+			get { return minimized; }
+			set
+			{
+				if (minimized != value)
+				{
+					minimized = value;
+					Visibility visible = minimized ? Visibility.Collapsed : Visibility.Visible;
+
+					for (int i = 1; i < stkMain.Children.Count; i++)
+					{
+						stkMain.Children[i].Visibility = visible;
+					}
+				}
+			}
+		}
+
 		/// <summary>Fired when the card is archived.</summary>
 		public event EventHandler Archived;
 
@@ -278,6 +300,7 @@ namespace NotecardFront
 									ArrangementCardID = arrangementCardID,
 									FieldIndex = fieldIndex,
 									Value = (string)CardData.Fields[fieldIndex],
+									ShowLabel = f.ShowLabel,
 									LabelText = f.Name,
 									HeightIncrease = heightIncrease
 								};
@@ -305,6 +328,7 @@ namespace NotecardFront
 									ArrangementCardID = ((arrangementSettings == null) ? null : arrangementSettings.ID),
 									FieldIndex = fieldIndex,
 									Value = (string)CardData.Fields[fieldIndex],
+									ShowLabel = f.ShowLabel,
 									LabelText = f.Name,
 									FilterCardTypes = (string.IsNullOrEmpty(f.RefCardTypeID) ? null : CardManager.getCardTypeDescendents(f.RefCardTypeID, Path, ref userMessage))
 								};
@@ -344,6 +368,7 @@ namespace NotecardFront
 									CardTypeFieldID = f.ID,
 									FieldIndex = fieldIndex,
 									Value = (string)CardData.Fields[fieldIndex],
+									ShowLabel = f.ShowLabel,
 									LabelText = f.Name
 								};
 
@@ -382,7 +407,7 @@ namespace NotecardFront
 		/// <summary>Update the text card's size.</summary>
 		private void TextField_HeightChanged(object sender, EventArgs e)
 		{
-			MovedOrResized?.Invoke(this, null);
+			MovedOrResized?.Invoke(this, EventArgs.Empty);
 
 			//this.Height = double.NaN;
 		}
@@ -391,7 +416,7 @@ namespace NotecardFront
 		private void ImageField_Added(object sender, EventArgs e)
 		{
 			this.UpdateLayout();
-			MovedOrResized?.Invoke(this, null);
+			MovedOrResized?.Invoke(this, EventArgs.Empty);
 		}
 
 		/// <summary>Update the value.</summary>
@@ -439,7 +464,7 @@ namespace NotecardFront
 		{
 			((Canvas)this.Parent).Children.Remove(this);
 
-			Archived?.Invoke(this, null);
+			Archived?.Invoke(this, EventArgs.Empty);
 		}
 
 		/// <summary>Delete the card.</summary>
@@ -488,7 +513,7 @@ namespace NotecardFront
 				this.MouseMove -= CardControl_MouseMove;
 				Mouse.Capture(null);
 
-				MovedOrResized?.Invoke(this, null);
+				MovedOrResized?.Invoke(this, EventArgs.Empty);
 
 				return;
 			}
@@ -516,7 +541,7 @@ namespace NotecardFront
 				rResizeL.MouseMove -= rResizeL_MouseMove;
 				Mouse.Capture(null);
 
-				MovedOrResized?.Invoke(this, null);
+				MovedOrResized?.Invoke(this, EventArgs.Empty);
 
 				return;
 			}
@@ -546,7 +571,7 @@ namespace NotecardFront
 				rResizeR.MouseMove -= rResizeR_MouseMove;
 				Mouse.Capture(null);
 
-				MovedOrResized?.Invoke(this, null);
+				MovedOrResized?.Invoke(this, EventArgs.Empty);
 
 				return;
 			}

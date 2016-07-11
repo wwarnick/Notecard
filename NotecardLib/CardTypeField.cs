@@ -25,6 +25,9 @@ namespace NotecardLib
 		/// <summary>Where the field will be displayed in the order of fields.</summary>
 		public string SortOrder { get; set; }
 
+		/// <summary>Whether or not the label should be displayed.</summary>
+		public bool ShowLabel { get; set; }
+
 		/// <summary>The ID of the card type referenced by this card type (if FieldType == Card).</summary>
 		public string RefCardTypeID { get; set; }
 
@@ -36,20 +39,22 @@ namespace NotecardLib
 		#region Constructors
 
 		/// <summary>Initializes a new instance of the CardTypeField class for a new card type field.</summary>
-		public CardTypeField() : this(string.Empty, string.Empty, DataType.Text, string.Empty, string.Empty) { }
+		public CardTypeField() : this(string.Empty, string.Empty, DataType.Text, string.Empty, true, string.Empty) { }
 
 		/// <summary>Initializes a new instance of the CardTypeField class for an existing card type field.</summary>
 		/// <param name="id">The database ID.</param>
 		/// <param name="name">The name shown to the user.</param>
 		/// <param name="fieldType">This determines what kind of data is stored in the field.</param>
 		/// <param name="sortOrder">Where the field will be displayed in the order of fields.</param>
+		/// <param name="showLabel">Whether or not the label should be displayed.</param>
 		/// <param name="refCardTypeID">The ID of the card type referenced by this card type (if FieldType == Card).</param>
-		public CardTypeField(string id, string name, DataType fieldType, string sortOrder, string refCardTypeID)
+		public CardTypeField(string id, string name, DataType fieldType, string sortOrder, bool showLabel, string refCardTypeID)
 		{
 			this.ID = id;
 			this.Name = name;
 			this.FieldType = fieldType;
 			this.SortOrder = sortOrder;
+			this.ShowLabel = showLabel;
 			this.RefCardTypeID = refCardTypeID;
 			this.ListType = null;
 		}

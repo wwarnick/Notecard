@@ -41,8 +41,35 @@ namespace NotecardFront
 		public string LabelText
 		{
 			get { return lblName.Text; }
-			set { lblName.Text = value; }
+			set { if (lblName != null) lblName.Text = value; }
 		}
+
+		/// <summary>Whether or not the label should be displayed.</summary>
+		public bool ShowLabel
+		{
+			get { return lblName != null; }
+			set
+			{
+				if (value && lblName == null)
+				{
+					lblName = new TextBlock()
+					{
+						Margin = new Thickness(5d),
+						VerticalAlignment = VerticalAlignment.Center
+					};
+
+					grdMain.Children.Add(lblName);
+				}
+				else if (!value && lblName != null)
+				{
+					grdMain.Children.Remove(lblName);
+					lblName = null;
+				}
+			}
+		}
+
+		/// <summary>The field's label.</summary>
+		public TextBlock lblName { get; set; }
 
 		/// <summary>Called after btnDelete is pressed.</summary>
 		public event EventHandler Deleted;
@@ -167,7 +194,7 @@ namespace NotecardFront
 			// display image
 			imgImage.Source = thumbnail;
 
-			Added?.Invoke(this, null);
+			Added?.Invoke(this, EventArgs.Empty);
 		}
 
 		/// <summary>Shows btnDelete.</summary>
@@ -201,7 +228,7 @@ namespace NotecardFront
 			btnDelete.Visibility = Visibility.Collapsed;
 			btnBrowse.Visibility = Visibility.Visible;
 
-			Deleted?.Invoke(this, null);
+			Deleted?.Invoke(this, EventArgs.Empty);
 
 			if (!string.IsNullOrEmpty(userMessage))
 				MessageBox.Show(userMessage);

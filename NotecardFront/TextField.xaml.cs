@@ -43,7 +43,7 @@ namespace NotecardFront
 		public string LabelText
 		{
 			get { return lblName.Text; }
-			set { lblName.Text = value; }
+			set { if (ShowLabel) lblName.Text = value; }
 		}
 
 		/// <summary>The height to add on to the minimum height of txtValue.</summary>
@@ -55,6 +55,39 @@ namespace NotecardFront
 
 		/// <summary>How far the cursor is from the upper-left corner of rctResize when dragging.</summary>
 		private Point dragOffset;
+
+		/// <summary>Whether or not the label should be displayed.</summary>
+		public bool ShowLabel
+		{
+			get { return lblName != null; }
+			set
+			{
+				if (value && lblName == null)
+				{
+					lblName = new TextBlock()
+					{
+						Margin = new Thickness(5d),
+						VerticalAlignment = VerticalAlignment.Center
+					};
+
+					grdMain.Children.Add(lblName);
+
+					txtValue.Margin = new Thickness(0d, 5d, 10d, 0d);
+					rctResize.Margin = new Thickness(0d, 0d, 10d, 0d);
+				}
+				else if (!value && lblName != null)
+				{
+					grdMain.Children.Remove(lblName);
+					lblName = null;
+
+					txtValue.Margin = new Thickness(10d, 5d, 10d, 0d);
+					rctResize.Margin = new Thickness(10d, 0d, 10d, 0d);
+				}
+			}
+		}
+
+		/// <summary>The field's label.</summary>
+		private TextBlock lblName { get; set; }
 
 		/// <summary>Called after the value is changed.</summary>
 		public event EventHandler ValueChanged;
@@ -80,8 +113,12 @@ namespace NotecardFront
 		public void setAsTitle(Brush backColor)
 		{
 			this.Background = backColor;
-			lblName.Foreground = Brushes.White;
-			lblName.FontWeight = FontWeights.Bold;
+
+			if (lblName != null)
+			{
+				lblName.Foreground = Brushes.White;
+				lblName.FontWeight = FontWeights.Bold;
+			}
 		}
 
 		/// <summary>Saves the new value.</summary>
@@ -93,7 +130,7 @@ namespace NotecardFront
 			{
 				this.Value = txtValue.Text;
 				CardManager.saveCardTextField(this.Value, CardID, CardTypeFieldID, Path, ref userMessage);
-				ValueChanged?.Invoke(this, null);
+				ValueChanged?.Invoke(this, EventArgs.Empty);
 			}
 
 			if (!string.IsNullOrEmpty(userMessage))
@@ -128,7 +165,7 @@ namespace NotecardFront
 
 				CardManager.setFieldTextHeightIncrease(ArrangementCardID, CardTypeFieldID, (int)Math.Round(txtValue.ActualHeight - txtValue.MinHeight), Path, ref userMessage);
 
-				HeightChanged?.Invoke(this, null);
+				HeightChanged?.Invoke(this, EventArgs.Empty);
 
 				return;
 			}

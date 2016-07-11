@@ -50,11 +50,44 @@ namespace NotecardFront
 		/// <summary>The database ID of the referred card.</summary>
 		public string Value { get; set; }
 
+		/// <summary>The field's label.</summary>
+		public TextBlock lblName { get; set; }
+
+		/// <summary>Whether or not the label should be displayed.</summary>
+		public bool ShowLabel
+		{
+			get { return lblName != null; }
+			set
+			{
+				if (value && lblName == null)
+				{
+					lblName = new TextBlock()
+					{
+						Margin = new Thickness(5d),
+						VerticalAlignment = VerticalAlignment.Center
+					};
+
+					grdMain.Children.Add(lblName);
+
+					txtSearch.Margin = new Thickness(0d, 5d, 10d, 5d);
+					lblSelection.Margin = new Thickness(0d, 0d, 0d, 0d);
+				}
+				else if (!value && lblName != null)
+				{
+					grdMain.Children.Remove(lblName);
+					lblName = null;
+
+					txtSearch.Margin = new Thickness(10d, 5d, 10d, 5d);
+					lblSelection.Margin = new Thickness(10d, 0d, 0d, 0d);
+				}
+			}
+		}
+
 		/// <summary>The text to show in the label.</summary>
 		public string LabelText
 		{
 			get { return lblName.Text; }
-			set { lblName.Text = value; }
+			set { if (ShowLabel) lblName.Text = value; }
 		}
 
 		/// <summary>A comma-delimited list of card types to search. null to search all types.</summary>
@@ -84,6 +117,7 @@ namespace NotecardFront
 			if (string.IsNullOrEmpty(this.Value))
 			{
 				lblSelection.Visibility = Visibility.Collapsed;
+				rctBlock.Visibility = Visibility.Collapsed;
 				lblRemove.Visibility = Visibility.Collapsed;
 				txtSearch.Opacity = 1d;
 				txtSearch.Cursor = Cursors.IBeam;
@@ -93,6 +127,7 @@ namespace NotecardFront
 			{
 				lblSelection.Text = CardManager.getCardNames(new string[] { this.Value }, Path, ref userMessage)[0];
 				lblSelection.Visibility = Visibility.Visible;
+				rctBlock.Visibility = Visibility.Visible;
 				lblRemove.Visibility = Visibility.Visible;
 				txtSearch.Opacity = 0d;
 				txtSearch.Cursor = Cursors.Hand;
@@ -128,6 +163,7 @@ namespace NotecardFront
 				txtSearch.Opacity = 1d;
 				txtSearch.Cursor = Cursors.IBeam;
 				lblSelection.Visibility = Visibility.Collapsed;
+				rctBlock.Visibility = Visibility.Collapsed;
 				lblRemove.Visibility = Visibility.Collapsed;
 
 				this.Value = null;
@@ -146,6 +182,7 @@ namespace NotecardFront
 				txtSearch.Opacity = 0d;
 				txtSearch.Cursor = Cursors.Hand;
 				lblSelection.Visibility = Visibility.Visible;
+				rctBlock.Visibility = Visibility.Visible;
 				lblRemove.Visibility = Visibility.Visible;
 			}
 		}

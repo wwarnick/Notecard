@@ -419,6 +419,7 @@ namespace NotecardFront
 		/// <summary>Shows the card type settings.</summary>
 		private void btnShowCardTypes_Click(object sender, RoutedEventArgs e)
 		{
+			dckMain.IsEnabled = false;
 			lclCardTypeSettings.Visibility = Visibility.Visible;
 		}
 
@@ -428,7 +429,10 @@ namespace NotecardFront
 			string userMessage = string.Empty;
 
 			if (!(bool)e.NewValue)
+			{
 				refreshCards(ref userMessage);
+				dckMain.IsEnabled = true;
+			}
 
 			if (!string.IsNullOrEmpty(userMessage))
 				MessageBox.Show(userMessage);

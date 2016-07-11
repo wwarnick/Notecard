@@ -71,12 +71,17 @@ namespace NotecardFront
 			bool notFirst = false;
 			foreach (Card c in this.Value)
 			{
-				// add switch and remove buttons
-				stkMain.Children.Add(getNewListItemMenu(notFirst));
-
+				// get arrangement settings
 				ArrangementCardList l = (arrangementSettings == null) ? null : ((ArrangementCardStandalone)arrangementSettings).ListItems[listFieldIndex];
+
+				// add switch, minimize, and remove buttons
+				ListItemMenu menu = getNewListItemMenu(notFirst);
+				menu.Minimized = (l != null) ? l.Minimized : false;
+				stkMain.Children.Add(menu);
+
 				CardControl item = newListItem(c.ID, this.ListType, l, ref userMessage);
 				item.ArrangementCardID = (l != null) ? l.ID : CardManager.getArrangementListCardID(ArrangementCardID, item.CardID, Path, ref userMessage);
+				item.Minimized = menu.Minimized;
 				stkMain.Children.Add(item);
 
 				listFieldIndex++;
@@ -101,6 +106,7 @@ namespace NotecardFront
 			};
 
 			menu.Switch += Menu_Switch;
+			menu.Minimize += Menu_Minimize;
 			menu.RemoveItem += Menu_RemoveItem;
 
 			return menu;
@@ -172,6 +178,27 @@ namespace NotecardFront
 
 			// apply change to database
 			CardManager.swapListItems(lastListItem.CardID, nextListItem.CardID, this.Path, ref userMessage);
+
+			if (!string.IsNullOrEmpty(userMessage))
+				MessageBox.Show(userMessage);
+		}
+
+		/// <summary>Minimizes the list item below it.</summary>
+		private void Menu_Minimize(object sender, EventArgs e)
+		{
+			string userMessage = string.Empty;
+
+			for (int i = 0; i < stkMain.Children.Count; i++)
+			{
+				if ((FrameworkElement)stkMain.Children[i] == sender)
+				{
+					CardControl c = (CardControl)(FrameworkElement)stkMain.Children[i + 1];
+					c.Minimized = !c.Minimized;
+
+					CardManager.setListItemMinimized(c.ArrangementCardID, c.Minimized, this.Path, ref userMessage);
+					break;
+				}
+			}
 
 			if (!string.IsNullOrEmpty(userMessage))
 				MessageBox.Show(userMessage);
@@ -292,6 +319,8 @@ namespace NotecardFront
 
 			CardControl c = newListItem(newItem.ID, this.ListType, null, ref userMessage);
 			c.ArrangementCardID = CardManager.getArrangementListCardID(ArrangementCardID, id, Path, ref userMessage);
+			CardManager.setListItemMinimized(c.ArrangementCardID, false, this.Path, ref userMessage);
+
 			c.updateFieldArrangementIDs(ref userMessage);
 
 			stkMain.Children.Remove(btnAddItem);

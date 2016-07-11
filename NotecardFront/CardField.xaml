@@ -6,7 +6,7 @@
              xmlns:local="clr-namespace:NotecardFront"
              mc:Ignorable="d" 
              d:DesignHeight="300" d:DesignWidth="300">
-    <Grid>
+    <Grid Name="grdMain">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="auto"/>
             <ColumnDefinition Width="auto"/>
@@ -14,9 +14,9 @@
             <ColumnDefinition Width="auto"/>
         </Grid.ColumnDefinitions>
         
-        <TextBlock Name="lblName" Margin="5" VerticalAlignment="Center"/>
-        <local:SearchBox x:Name="txtSearch" Grid.Column="1" Grid.ColumnSpan="2" MinWidth="100" MinHeight="20" Margin="0 5 10 5" SelectionMade="txtSearch_SelectionMade" GotFocus="txtSearch_GotFocus" LostFocus="txtSearch_LostFocus"/>
-        <TextBlock Name="lblSelection" Grid.Column="1" VerticalAlignment="Center" MinHeight="20" Visibility="Collapsed" TextDecorations="Underline" Cursor="Hand"/>
+        <local:SearchBox x:Name="txtSearch" Grid.Column="1" Grid.ColumnSpan="3" MinWidth="100" MinHeight="20" Margin="10 5 10 5" SelectionMade="txtSearch_SelectionMade" GotFocus="txtSearch_GotFocus" LostFocus="txtSearch_LostFocus"/>
+        <TextBlock Name="lblSelection" Grid.Column="1" VerticalAlignment="Center" MinHeight="20" Visibility="Collapsed" TextDecorations="Underline" Cursor="Hand" Margin="10 0 0 0"/>
+        <Rectangle Name="rctBlock" Fill="Transparent" Grid.Column="2" Visibility="Collapsed"/>
         <TextBlock Name="lblRemove" Grid.Column="3" VerticalAlignment="Center" Margin="0 0 10 0" Width="20" TextAlignment="Center" IsHitTestVisible="False" Visibility="Collapsed">X</TextBlock>
     </Grid>
 </UserControl>

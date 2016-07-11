@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace NotecardLib
 {
-	public enum CardTypeChange { CardTypeNameChange, CardTypeParentChange, CardTypeColorChange, CardTypeRemove, CardTypeFieldAdd, CardTypeFieldNameChange, CardTypeFieldTypeChange, CardTypeFieldCardTypeChange, CardTypeFieldSwap, CardTypeFieldRemove }
+	public enum CardTypeChange { CardTypeNameChange, CardTypeParentChange, CardTypeColorChange, CardTypeRemove, CardTypeFieldAdd, CardTypeFieldNameChange, CardTypeFieldTypeChange, CardTypeFieldCardTypeChange, CardTypeFieldShowLabelChange, CardTypeFieldSwap, CardTypeFieldRemove }
 
 	public class CardTypeChg
 	{

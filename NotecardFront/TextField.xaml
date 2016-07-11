@@ -6,7 +6,7 @@
              xmlns:local="clr-namespace:NotecardFront"
              mc:Ignorable="d" 
              d:DesignHeight="300" d:DesignWidth="300">
-    <Grid>
+    <Grid Name="grdMain">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="auto"/>
             <ColumnDefinition Width="*"/>
@@ -16,8 +16,7 @@
             <RowDefinition Height="5"/>
         </Grid.RowDefinitions>
 
-        <TextBlock Name="lblName" Margin="5" VerticalAlignment="Center"/>
-        <TextBox Name="txtValue" Grid.Column="1" MinHeight="20" MinWidth="100" Margin="0 5 10 0" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" LostFocus="txtValue_LostFocus"/>
-        <Rectangle Name="rctResize" Grid.Column="1" Grid.Row="1" Margin="0 0 10 0" Fill="Transparent" Cursor="SizeNS" MouseDown="rctResize_MouseDown"/>
+        <TextBox Name="txtValue" Grid.Column="1" MinHeight="20" MinWidth="100" Margin="10 5 10 0" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" LostFocus="txtValue_LostFocus"/>
+        <Rectangle Name="rctResize" Grid.Column="1" Grid.Row="1" Margin="10 0 10 0" Fill="Transparent" Cursor="SizeNS" MouseDown="rctResize_MouseDown"/>
     </Grid>
 </UserControl>

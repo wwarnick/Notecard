@@ -10,8 +10,10 @@
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*"/>
             <ColumnDefinition Width="auto"/>
+            <ColumnDefinition Width="auto"/>
         </Grid.ColumnDefinitions>
 
-        <Button Name="btnRemoveItem" Content="X" Grid.Column="1" Background="Transparent" BorderBrush="Transparent" BorderThickness="0" Padding="5 0 5 0" VerticalContentAlignment="Center" MaxHeight="15" FontWeight="Bold" Click="btnRemoveItem_Click"/>
+        <Button Name="btnMinimizeItem" Content="-" Grid.Column="1" Background="Transparent" BorderBrush="Transparent" BorderThickness="0" Padding="5 0 5 0" VerticalContentAlignment="Center" MaxHeight="15" FontWeight="Bold" Click="btnMinimizeItem_Click"/>
+        <Button Name="btnRemoveItem" Content="X" Grid.Column="2" Background="Transparent" BorderBrush="Transparent" BorderThickness="0" Padding="5 0 5 0" VerticalContentAlignment="Center" MaxHeight="15" FontWeight="Bold" Click="btnRemoveItem_Click"/>
     </Grid>
 </UserControl>

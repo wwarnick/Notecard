@@ -51,6 +51,9 @@ namespace NotecardFront
 							VerticalContentAlignment = VerticalAlignment.Center
 						};
 
+						Grid.SetColumnSpan(btnSwitch, 3);
+						Grid.SetZIndex(btnSwitch, -1);
+
 						btnSwitch.Click += btnSwitch_Click;
 
 						grdMain.Children.Add(btnSwitch);
@@ -69,6 +72,7 @@ namespace NotecardFront
 			get { return btnRemoveItem.Foreground; }
 			set
 			{
+				btnMinimizeItem.Foreground = value;
 				btnRemoveItem.Foreground = value;
 
 				if (IncludeSwitch)
@@ -76,8 +80,23 @@ namespace NotecardFront
 			}
 		}
 
+		private bool minimized;
+
+		public bool Minimized
+		{
+			get { return minimized; }
+			set
+			{
+				minimized = value;
+				btnMinimizeItem.Content = minimized ? "+" : "-";
+			}
+		}
+
 		/// <summary>Fired when the user clicks btnSwitch.</summary>
 		public event EventHandler Switch;
+
+		/// <summary>Fired when the user clicks btnMinimizeItem</summary>
+		public event EventHandler Minimize;
 
 		/// <summary>Fired when the user clicks btnRemoveItem.</summary>
 		public event EventHandler RemoveItem;
@@ -106,6 +125,13 @@ namespace NotecardFront
 		private void btnSwitch_Click(object sender, RoutedEventArgs e)
 		{
 			Switch?.Invoke(this, EventArgs.Empty);
+		}
+
+		/// <summary>Fired when btnMinimizeItem is clicked.</summary>
+		private void btnMinimizeItem_Click(object sender, RoutedEventArgs e)
+		{
+			Minimized = !Minimized;
+			Minimize?.Invoke(this, EventArgs.Empty);
 		}
 
 		#endregion Events

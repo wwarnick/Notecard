@@ -5,10 +5,10 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:NotecardFront"
         mc:Ignorable="d"
-        Title="NoteCard" Height="531.915" Width="837.851"
+        Title="NoteCard" Height="531.915" Width="860.851"
         Closing="MainWindow_Closing">
     <Grid>
-        <DockPanel>
+        <DockPanel Name="dckMain">
             <Grid DockPanel.Dock="Top" Height="30" Background="LightBlue">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
@@ -50,6 +50,6 @@
             </Grid>
             <Canvas Name="pnlMain"/>
         </DockPanel>
-        <local:CardTypeSettings x:Name="lclCardTypeSettings" Visibility="Collapsed" IsVisibleChanged="lclCardTypeSettings_IsVisibleChanged"/>
+        <local:CardTypeSettings x:Name="lclCardTypeSettings" Visibility="Collapsed" VerticalAlignment="Top" HorizontalAlignment="Left" IsVisibleChanged="lclCardTypeSettings_IsVisibleChanged"/>
     </Grid>
 </Window>

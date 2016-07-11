@@ -580,6 +580,8 @@ namespace NotecardFront
 				txtListFieldName.Text = string.Empty;
 				cmbListFieldType.SelectedValue = null;
 				cmbListFieldCardType.SelectedValue = null;
+				chkListFieldShowLabel.IsChecked = true;
+
 				grdListField.IsEnabled = false;
 			}
 			else
@@ -599,6 +601,8 @@ namespace NotecardFront
 				txtListFieldName.Text = ctf.Name;
 				cmbListFieldType.SelectedValue = ((int)ctf.FieldType).ToString();
 				cmbListFieldCardType.SelectedValue = (ctf.FieldType != DataType.Card) ? null : string.IsNullOrEmpty(ctf.RefCardTypeID) ? string.Empty : ctf.RefCardTypeID;
+				chkListFieldShowLabel.IsChecked = ctf.ShowLabel;
+
 				grdListField.IsEnabled = true;
 			}
 
@@ -656,16 +660,17 @@ namespace NotecardFront
 		{
 			string userMessage = string.Empty;
 
-			/*if (!string.IsNullOrEmpty((string)lstCardTypeField.SelectedValue) && chkCardTypeFieldShowLabel.IsFocused)
+			if (!string.IsNullOrEmpty((string)lstListField.SelectedValue) && chkListFieldShowLabel.IsFocused)
 			{
-				CardTypeField field = CurCardType.Fields[lstCardTypeField.SelectedIndex];
+				CardType listType = CurCardType.Fields[lstCardTypeField.SelectedIndex].ListType;
+				CardTypeField field = listType.Fields[lstListField.SelectedIndex];
 
-				if (field.ShowLabel != chkCardTypeFieldShowLabel.IsChecked)
+				if (field.ShowLabel != chkListFieldShowLabel.IsChecked)
 				{
-					CardManager.saveCardType((string)lstCardType.SelectedValue, new CardTypeChg(CardTypeChange.CardTypeFieldShowLabelChange, (string)lstCardTypeField.SelectedValue, chkCardTypeFieldShowLabel.IsChecked), Path, ref userMessage);
+					CardManager.saveCardType(listType.ID, new CardTypeChg(CardTypeChange.CardTypeFieldShowLabelChange, field.ID, chkListFieldShowLabel.IsChecked), Path, ref userMessage);
 					refreshCurCardType(ref userMessage);
 				}
-			}*/
+			}
 
 			if (!string.IsNullOrEmpty(userMessage))
 				MessageBox.Show(userMessage);

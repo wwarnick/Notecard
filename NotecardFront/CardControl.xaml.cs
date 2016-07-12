@@ -16,6 +16,8 @@ using System.Windows.Shapes;
 
 namespace NotecardFront
 {
+	public delegate void EventHandler<T>(object sender, EventArgs<T> e);
+
 	/// <summary>
 	/// Interaction logic for CardControl.xaml
 	/// </summary>
@@ -125,6 +127,9 @@ namespace NotecardFront
 
 		/// <summary>Fired when the card is moved or resized.</summary>
 		public event EventHandler MovedOrResized;
+
+		/// <summary>Fired when a card field link is clicked.</summary>
+		public event EventHandler<string> OpenCard;
 
 		#endregion Members
 
@@ -335,6 +340,7 @@ namespace NotecardFront
 								};
 
 								fCard.ValueChanged += CardField_ValueChanged;
+								fCard.OpenCard += CardField_OpenCard;
 								fCard.refresh(ref userMessage);
 								stkMain.Children.Add(fCard);
 
@@ -409,6 +415,12 @@ namespace NotecardFront
 		{
 			CardField cf = (CardField)sender;
 			CardData.Fields[cf.FieldIndex] = cf.Value;
+		}
+
+		/// <summary>Opens the selected card.</summary>
+		private void CardField_OpenCard(object sender, EventArgs e)
+		{
+			OpenCard?.Invoke(this, new EventArgs<string>() { Value = ((CardField)sender).Value });
 		}
 
 		/// <summary>Update the text field's value.</summary>

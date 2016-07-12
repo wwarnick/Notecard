@@ -64,6 +64,7 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </ApplicationDefinition>
+    <Compile Include="EventArgsVal.cs" />
     <Compile Include="ListField.xaml.cs">
       <DependentUpon>ListField.xaml</DependentUpon>
     </Compile>

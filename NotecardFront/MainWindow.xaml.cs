@@ -254,6 +254,7 @@ namespace NotecardFront
 			c.PreviewMouseDown += CardControl_PreviewMouseDown;
 			c.Archived += CardControl_Archived;
 			c.MovedOrResized += CardControl_MovedOrResized;
+			c.OpenCard += CardControl_OpenCard;
 			pnlMain.Children.Add(c);
 
 			c.UpdateLayout();
@@ -393,7 +394,36 @@ namespace NotecardFront
 			}
 		}
 
+		private void loadExistingCard(string cardID, ref string userMessage)
+		{
+			if (!string.IsNullOrEmpty((string)lstArrangements.SelectedValue))
+			{
+				foreach (FrameworkElement ui in pnlMain.Children)
+				{
+					if ((string)ui.Tag == "line")
+						continue;
+
+					// if the card is already on the board
+					if (((CardControl)ui).CardID == cardID)
+						return;
+				}
+
+				openCard(cardID, null, true, ref userMessage);
+			}
+		}
+
 		#region Events
+
+		/// <summary>Opens a card.</summary>
+		private void CardControl_OpenCard(object sender, EventArgs<string> e)
+		{
+			string userMessage = string.Empty;
+
+			loadExistingCard(e.Value, ref userMessage);
+
+			if (!string.IsNullOrEmpty(userMessage))
+				MessageBox.Show(userMessage);
+		}
 
 		/// <summary>Sets the position and size of the card in the current arrangement.</summary>
 		private void CardControl_MovedOrResized(object sender, EventArgs e)
@@ -485,20 +515,7 @@ namespace NotecardFront
 		{
 			string userMessage = string.Empty;
 
-			if (!string.IsNullOrEmpty((string)lstArrangements.SelectedValue))
-			{
-				foreach (FrameworkElement ui in pnlMain.Children)
-				{
-					if ((string)ui.Tag == "line")
-						continue;
-
-					// if the card is already on the board
-					if (((CardControl)ui).CardID == e.SelectedValue)
-						return;
-				}
-
-				openCard(e.SelectedValue, null, true, ref userMessage);
-			}
+			loadExistingCard(e.SelectedValue, ref userMessage);
 
 			if (!string.IsNullOrEmpty(userMessage))
 				MessageBox.Show(userMessage);

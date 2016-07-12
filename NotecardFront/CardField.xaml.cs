@@ -21,6 +21,8 @@ namespace NotecardFront
 	/// </summary>
 	public partial class CardField : UserControl
 	{
+		#region Members
+
 		/// <summary>The path of the current database.</summary>
 		private string path;
 
@@ -70,7 +72,7 @@ namespace NotecardFront
 					grdMain.Children.Add(lblName);
 
 					txtSearch.Margin = new Thickness(0d, 5d, 10d, 5d);
-					lblSelection.Margin = new Thickness(0d, 0d, 0d, 0d);
+					btnSelection.Margin = new Thickness(0d, 0d, 0d, 0d);
 				}
 				else if (!value && lblName != null)
 				{
@@ -78,7 +80,7 @@ namespace NotecardFront
 					lblName = null;
 
 					txtSearch.Margin = new Thickness(10d, 5d, 10d, 5d);
-					lblSelection.Margin = new Thickness(10d, 0d, 0d, 0d);
+					btnSelection.Margin = new Thickness(10d, 0d, 0d, 0d);
 				}
 			}
 		}
@@ -100,6 +102,13 @@ namespace NotecardFront
 		/// <summary>Called after the value is changed.</summary>
 		public event EventHandler ValueChanged;
 
+		/// <summary>Called when btnSelection is clicked.</summary>
+		public event EventHandler OpenCard;
+
+		#endregion Members
+
+		#region Constructors
+
 		public CardField()
 		{
 			InitializeComponent();
@@ -107,27 +116,29 @@ namespace NotecardFront
 			this.Tag = DataType.Card;
 		}
 
+		#endregion Constructors
+
+		#region Methods
+
 		/// <summary>Refreshes the interface.</summary>
 		/// <param name="userMessage">Any user messages.</param>
 		public void refresh(ref string userMessage)
 		{
 			txtSearch.clear();
-			lblSelection.Text = this.Value;
+			btnSelection.Content = this.Value;
 
 			if (string.IsNullOrEmpty(this.Value))
 			{
-				lblSelection.Visibility = Visibility.Collapsed;
-				rctBlock.Visibility = Visibility.Collapsed;
+				btnSelection.Visibility = Visibility.Collapsed;
 				lblRemove.Visibility = Visibility.Collapsed;
 				txtSearch.Opacity = 1d;
 				txtSearch.Cursor = Cursors.IBeam;
-				lblSelection.Text = string.Empty;
+				btnSelection.Content = string.Empty;
 			}
 			else
 			{
-				lblSelection.Text = CardManager.getCardNames(new string[] { this.Value }, Path, ref userMessage)[0];
-				lblSelection.Visibility = Visibility.Visible;
-				rctBlock.Visibility = Visibility.Visible;
+				btnSelection.Content = CardManager.getCardNames(new string[] { this.Value }, Path, ref userMessage)[0];
+				btnSelection.Visibility = Visibility.Visible;
 				lblRemove.Visibility = Visibility.Visible;
 				txtSearch.Opacity = 0d;
 				txtSearch.Cursor = Cursors.Hand;
@@ -158,12 +169,11 @@ namespace NotecardFront
 		{
 			string userMessage = string.Empty;
 
-			if (lblSelection.Visibility == Visibility.Visible)
+			if (btnSelection.Visibility == Visibility.Visible)
 			{
 				txtSearch.Opacity = 1d;
 				txtSearch.Cursor = Cursors.IBeam;
-				lblSelection.Visibility = Visibility.Collapsed;
-				rctBlock.Visibility = Visibility.Collapsed;
+				btnSelection.Visibility = Visibility.Collapsed;
 				lblRemove.Visibility = Visibility.Collapsed;
 
 				this.Value = null;
@@ -181,10 +191,17 @@ namespace NotecardFront
 			{
 				txtSearch.Opacity = 0d;
 				txtSearch.Cursor = Cursors.Hand;
-				lblSelection.Visibility = Visibility.Visible;
-				rctBlock.Visibility = Visibility.Visible;
+				btnSelection.Visibility = Visibility.Visible;
 				lblRemove.Visibility = Visibility.Visible;
 			}
 		}
+
+		/// <summary>Opens the selected card.</summary>
+		private void btnSelection_Click(object sender, RoutedEventArgs e)
+		{
+			OpenCard?.Invoke(this, EventArgs.Empty);
+		}
+
+		#endregion Methods
 	}
 }

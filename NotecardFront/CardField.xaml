@@ -9,14 +9,12 @@
     <Grid Name="grdMain">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="auto"/>
-            <ColumnDefinition Width="auto"/>
             <ColumnDefinition Width="*"/>
             <ColumnDefinition Width="auto"/>
         </Grid.ColumnDefinitions>
         
         <local:SearchBox x:Name="txtSearch" Grid.Column="1" Grid.ColumnSpan="3" MinWidth="100" MinHeight="20" Margin="10 5 10 5" SelectionMade="txtSearch_SelectionMade" GotFocus="txtSearch_GotFocus" LostFocus="txtSearch_LostFocus"/>
-        <TextBlock Name="lblSelection" Grid.Column="1" VerticalAlignment="Center" MinHeight="20" Visibility="Collapsed" TextDecorations="Underline" Cursor="Hand" Margin="10 0 0 0"/>
-        <Rectangle Name="rctBlock" Fill="Transparent" Grid.Column="2" Visibility="Collapsed"/>
-        <TextBlock Name="lblRemove" Grid.Column="3" VerticalAlignment="Center" Margin="0 0 10 0" Width="20" TextAlignment="Center" IsHitTestVisible="False" Visibility="Collapsed">X</TextBlock>
+        <Button Name="btnSelection" Grid.Column="1" MinHeight="20" Visibility="Collapsed" TextBlock.TextAlignment="Left" TextElement.FontWeight="Bold" TextElement.FontStyle="Italic" Margin="10 0 0 0" Click="btnSelection_Click" Background="Transparent" BorderBrush="Transparent" BorderThickness="0"/>
+        <TextBlock Name="lblRemove" Grid.Column="2" VerticalAlignment="Center" Margin="0 0 10 0" Width="20" TextAlignment="Center" IsHitTestVisible="False" Visibility="Collapsed">X</TextBlock>
     </Grid>
 </UserControl>

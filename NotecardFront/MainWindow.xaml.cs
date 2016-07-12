@@ -226,7 +226,8 @@ namespace NotecardFront
 		/// <param name="arrangementSettings">The card's settings for the current arrangement.</param>
 		/// <param name="addToArrangement">Whether or not to add the card to the current arrangement. false if it's already part of it.</param>
 		/// <param name="userMessage">Any user messages.</param>
-		private void openCard(string cardID, ArrangementCardStandalone arrangementSettings, bool addToArrangement, ref string userMessage)
+		/// <returns>The arrangement card ID</returns>
+		private string openCard(string cardID, ArrangementCardStandalone arrangementSettings, bool addToArrangement, ref string userMessage)
 		{
 			string cardTypeID = CardManager.getCardCardTypeID(cardID, path, ref userMessage);
 
@@ -263,6 +264,8 @@ namespace NotecardFront
 				c.ArrangementCardID = CardManager.arrangementAddCard((string)lstArrangements.SelectedValue, cardID, 0, 0, (int)Math.Round(c.ActualWidth), Path, ref userMessage);
 				c.updateFieldArrangementIDs(ref userMessage);
 			}
+
+			return c.ArrangementCardID;
 		}
 
 		/// <summary>Brings an element to the front.</summary>
@@ -447,7 +450,9 @@ namespace NotecardFront
 			{
 				string cardID = CardManager.newCard(Ancestries[(string)cmbAddCardType.SelectedValue], path, ref userMessage);
 
-				openCard(cardID, null, true, ref userMessage);
+				string arrangementCardID = openCard(cardID, null, true, ref userMessage);
+
+				CardManager.setAllFieldListMinimized(arrangementCardID, false, path, ref userMessage);
 			}
 
 			if (!string.IsNullOrEmpty(userMessage))

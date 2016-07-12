@@ -21,6 +21,8 @@ namespace NotecardFront
 	/// </summary>
 	public partial class ListField : UserControl
 	{
+		#region Members
+
 		/// <summary>The path of the current database.</summary>
 		public string Path { get; set; }
 
@@ -49,12 +51,46 @@ namespace NotecardFront
 			set { lblName.Text = value; }
 		}
 
+		/// <summary>Whether or not the list field is minimized (shows only the label).</summary>
+		private bool minimized;
+
+		/// <summary>Whether or not the list field is minimized (shows only the label).</summary>
+		public bool Minimized
+		{
+			get { return minimized; }
+			set
+			{
+				if (minimized != value)
+				{
+					minimized = value;
+
+					btnMinimize.Content = minimized ? "V" : "^";
+					lblName.HorizontalAlignment = minimized ? HorizontalAlignment.Left : HorizontalAlignment.Center;
+
+					Visibility visible = minimized ? Visibility.Collapsed : Visibility.Visible;
+
+					for (int i = 1; i < stkMain.Children.Count; i++)
+					{
+						stkMain.Children[i].Visibility = visible;
+					}
+				}
+			}
+		}
+
+		#endregion Members
+
+		#region Constructors
+
 		public ListField()
 		{
 			InitializeComponent();
 
 			this.Tag = DataType.List;
 		}
+
+		#endregion Constructors
+
+		#region Methods
 
 		/// <summary>Refreshes the interface.</summary>
 		/// <param name="arrangementSettings">The arrangement settings</param>
@@ -352,5 +388,19 @@ namespace NotecardFront
 				listItemIndex++;
 			}
 		}
+
+		/// <summary>Minimizes the list field.</summary>
+		private void btnMinimize_Click(object sender, RoutedEventArgs e)
+		{
+			string userMessage = string.Empty;
+
+			this.Minimized = !this.Minimized;
+			CardManager.setFieldListMinimized(ArrangementCardID, CardTypeFieldID, this.Minimized, this.Path, ref userMessage);
+
+			if (!string.IsNullOrEmpty(userMessage))
+				MessageBox.Show(userMessage);
+		}
+
+		#endregion Methods
 	}
 }

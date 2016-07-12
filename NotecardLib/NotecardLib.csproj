@@ -52,6 +52,7 @@
     <Compile Include="ArrangementCard.cs" />
     <Compile Include="ArrangementCardList.cs" />
     <Compile Include="ArrangementCardStandalone.cs" />
+    <Compile Include="ArrangementFieldList.cs" />
     <Compile Include="ArrangementFieldText.cs" />
     <Compile Include="Card.cs" />
     <Compile Include="CardManager.cs" />

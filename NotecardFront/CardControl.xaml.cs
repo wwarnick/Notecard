@@ -273,6 +273,7 @@ namespace NotecardFront
 			int textFieldIndex = 0;
 			int cardFieldIndex = 0;
 			int listFieldIndex = 0;
+			int listItemIndex = 0;
 			int imageFieldIndex = 0;
 			foreach (CardType ct in CardTypes)
 			{
@@ -342,21 +343,34 @@ namespace NotecardFront
 							break;
 						case DataType.List:
 							{
+								bool minimized = false;
+								string arrangementCardID = null;
+
+								if (arrangementSettings != null)
+								{
+									minimized = ((ArrangementCardStandalone)arrangementSettings).ListFields[listFieldIndex].Minimized;
+									arrangementCardID = arrangementSettings.ID;
+								}
+
 								ListField list = new ListField()
 								{
 									Path = this.Path,
 									CardID = this.CardID,
 									CardTypeFieldID = f.ID,
-									ArrangementCardID = ((arrangementSettings == null) ? null : arrangementSettings.ID),
+									ArrangementCardID = arrangementCardID,
 									FieldIndex = fieldIndex,
 									Value = (List<Card>)CardData.Fields[fieldIndex],
 									ListType = f.ListType,
 									LabelText = f.Name
 								};
 
-								list.refresh(arrangementSettings, ref listFieldIndex, ref userMessage);
+								list.refresh(arrangementSettings, ref listItemIndex, ref userMessage);
+
+								list.Minimized = minimized;
 
 								stkMain.Children.Add(list);
+
+								listFieldIndex++;
 							}
 							break;
 						case DataType.Image:

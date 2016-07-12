@@ -286,7 +286,27 @@ namespace NotecardLib
 					ON `arrangement_field_text` (`arrangement_card_id`);
 
 				CREATE INDEX `idx_aft_card_type_field_id`
-					ON `arrangement_field_text` (`card_type_field_id`);";
+					ON `arrangement_field_text` (`card_type_field_id`);
+
+				CREATE TABLE `arrangement_field_list` (
+					`id` INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+					`arrangement_card_id` INTEGER NOT NULL
+						REFERENCES `arrangement_card` (`id`)
+						ON UPDATE CASCADE ON DELETE CASCADE
+						DEFERRABLE INITIALLY DEFERRED,
+					`card_type_field_id` INTEGER NOT NULL
+						REFERENCES `card_type_field` (`id`)
+						ON UPDATE CASCADE ON DELETE CASCADE
+						DEFERRABLE INITIALLY DEFERRED,
+					`minimized` INTEGER NOT NULL DEFAULT 1,
+					UNIQUE (`arrangement_card_id`, `card_type_field_id`)
+				);
+
+				CREATE INDEX `idx_afl_arrangement_card_id`
+					ON `arrangement_field_list` (`arrangement_card_id`);
+
+				CREATE INDEX `idx_afl_card_type_field_id`
+					ON `arrangement_field_list` (`card_type_field_id`);";
 
 			execNonQuery(sql, path, ref userMessage, null);
 		}
@@ -626,7 +646,8 @@ namespace NotecardLib
 				case DataType.List:
 					sql.Append(@"
 						DELETE FROM `card_type` WHERE `id` = @list_type_id;
-						DELETE FROM `field_list` WHERE `card_type_field_id` = @card_type_field_id;");
+						DELETE FROM `field_list` WHERE `card_type_field_id` = @card_type_field_id;
+						DELETE FROM `arrangement_field_list` WHERE `card_type_field_id` = @card_type_field_id;");
 					parameters.Add(createParam("@list_type_id", DbType.Int64, oldField.RefCardTypeID));
 					break;
 				case DataType.Image:
@@ -659,7 +680,10 @@ namespace NotecardLib
 				case DataType.List:
 					sql.Append(@"
 						INSERT INTO `card_type` (`context`) VALUES (@list_context);
-						UPDATE `card_type_field` SET `ref_card_type_id` = LAST_INSERT_ROWID() WHERE `id` = @card_type_field_id;");
+						UPDATE `card_type_field` SET `ref_card_type_id` = LAST_INSERT_ROWID() WHERE `id` = @card_type_field_id;
+
+						INSERT INTO `arrangement_field_list` (`arrangement_card_id`, `card_type_field_id`)
+						SELECT `ac`.`id`, @card_type_field_id FROM `arrangement_card` `ac` JOIN `card` `c` ON `c`.`id` = `ac`.`card_id` WHERE `c`.`card_type_id` IN (" + descendents + @");");
 					parameters.Add(createParam("@list_context", DbType.Int64, (int)CardTypeContext.List));
 					break;
 				case DataType.Image:
@@ -1413,15 +1437,18 @@ namespace NotecardLib
 
 			// add field_list record
 			sql = @"
+				-- insert the field_list record
 				INSERT INTO `field_list` (`card_id`, `card_type_field_id`, `value`, `sort_order`)
 				VALUES (@card_id, @card_type_field_id, @value, @sort_order);
 
+				-- insert arrangement cards for the new list item to every relevant arrangement
 				INSERT INTO `arrangement_card` (`arrangement_id`, `card_id`)
 				SELECT `arrangement_id`, @value FROM `arrangement_card` WHERE `card_id` = @card_id;
 
 				INSERT INTO `arrangement_card_list` (`arrangement_card_id`)
 				SELECT `id` FROM `arrangement_card` WHERE `card_id` = @value;
 
+				-- insert arrangement records for all text fields in the item
 				INSERT INTO `arrangement_field_text` (`arrangement_card_id`, `card_type_field_id`)
 				SELECT `ac`.`id`, `ctf`.`id`
 				FROM `card_type_field` `ctf`
@@ -1429,11 +1456,22 @@ namespace NotecardLib
 					JOIN `card` `c` ON `c`.`card_type_id` = `ct`.`id`
 					JOIN `arrangement_card` `ac` ON `ac`.`card_id` = `c`.`id`
 				WHERE `c`.`id` = @value
-					AND `ctf`.`field_type` = @text_type;";
+					AND `ctf`.`field_type` = @text_type;
+
+				-- insert arrangement records for all list fields in the item
+				INSERT INTO `arrangement_field_list` (`arrangement_card_id`, `card_type_field_id`)
+				SELECT `ac`.`id`, `ctf`.`id`
+				FROM `card_type_field` `ctf`
+					JOIN `card_type` `ct` ON `ct`.`id` = `ctf`.`card_type_id`
+					JOIN `card` `c` ON `c`.`card_type_id` = `ct`.`id`
+					JOIN `arrangement_card` `ac` ON `ac`.`card_id` = `c`.`id`
+				WHERE `c`.`id` = @value
+					AND `ctf`.`field_type` = @list_type;";
 
 			parameters.Add(createParam("@value", DbType.Int64, id));
 			parameters.Add(createParam("@sort_order", DbType.Int64, orderResult));
 			parameters.Add(createParam("@text_type", DbType.Int64, (int)DataType.Text));
+			parameters.Add(createParam("@list_type", DbType.Int64, (int)DataType.List));
 
 			execNonQuery(sql, path, ref userMessage, parameters);
 
@@ -1627,6 +1665,20 @@ namespace NotecardLib
 				// get text fields
 				card.TextFields = getArrangementCardTextFields(card.ID, path, ref userMessage);
 
+				// get list fields
+				sql = @"
+					SELECT `ctf`.`id`, `afl`.`minimized`
+					FROM `arrangement_field_list` `afl`
+						JOIN `card_type_field` `ctf` ON `ctf`.`id` = `afl`.`card_type_field_id`
+					WHERE `afl`.`arrangement_card_id` = @arrangement_card_id;";
+				List<string[]> listFields = execReadListFields(sql, path, ref userMessage, createParam("@arrangement_card_id", DbType.Int64, card.ID), "id", "minimized");
+
+				card.ListFields = new ArrangementFieldList[listFields.Count];
+				for (int j = 0; j < listFields.Count; j++)
+				{
+					card.ListFields[j] = new ArrangementFieldList(listFields[j][0], listFields[j][1] != "0");
+				}
+
 				// get list items
 				sql = @"
 					SELECT `ac`.`id`, `fl`.`card_id`, `acl`.`minimized`
@@ -1639,15 +1691,15 @@ namespace NotecardLib
 					ORDER BY `ctf`.`sort_order`, `fl`.`sort_order`;";
 
 				listParams[0] = createParam("@card_id", DbType.Int64, card.CardID);
-				List<string[]> listFields = execReadListFields(sql, path, ref userMessage, listParams, "id", "card_id", "minimized");
+				List<string[]> listItems = execReadListFields(sql, path, ref userMessage, listParams, "id", "card_id", "minimized");
 
-				if (listFields.Count > 0)
+				if (listItems.Count > 0)
 				{
-					card.ListItems = new ArrangementCardList[listFields.Count];
+					card.ListItems = new ArrangementCardList[listItems.Count];
 
-					for (int listIndex = 0; listIndex < listFields.Count; listIndex++)
+					for (int listIndex = 0; listIndex < listItems.Count; listIndex++)
 					{
-						string[] f = listFields[listIndex];
+						string[] f = listItems[listIndex];
 						card.ListItems[listIndex] = new ArrangementCardList(f[0], f[1], getArrangementCardTextFields(f[0], path, ref userMessage), f[2] != "0");
 					}
 
@@ -1785,6 +1837,36 @@ namespace NotecardLib
 				createParam("@height_increase", DbType.Int64, heightIncrease));
 		}
 
+		/// <summary>Sets whether or not a list field is minimized in an arrangement.</summary>
+		/// <param name="arrangementCardID">The arrangement card's database ID.</param>
+		/// <param name="cardTypeFieldID">The card type field's database ID.</param>
+		/// <param name="minimized">Whether or not the list field is minimized in the arrangement.</param>
+		/// <param name="path">The current path of the database.</param>
+		/// <param name="userMessage">Any user messages.</param>
+		public static void setFieldListMinimized(string arrangementCardID, string cardTypeFieldID, bool minimized, string path, ref string userMessage)
+		{
+			string sql = "UPDATE `arrangement_field_list` SET `minimized` = @minimized WHERE `card_type_field_id` = @card_type_field_id AND `arrangement_card_id` = @arrangement_card_id;";
+
+			execNonQuery(sql, path, ref userMessage,
+				createParam("@arrangement_card_id", DbType.Int64, arrangementCardID),
+				createParam("@card_type_field_id", DbType.Int64, cardTypeFieldID),
+				createParam("@minimized", DbType.Int64, (minimized ? "1" : "0")));
+		}
+
+		/// <summary>Sets whether or not all list fields in a card are minimized in an arrangement.</summary>
+		/// <param name="arrangementCardID">The arrangement card's database ID.</param>
+		/// <param name="minimized">Whether or not the list field is minimized in the arrangement.</param>
+		/// <param name="path">The current path of the database.</param>
+		/// <param name="userMessage">Any user messages.</param>
+		public static void setAllFieldListMinimized(string arrangementCardID, bool minimized, string path, ref string userMessage)
+		{
+			string sql = "UPDATE `arrangement_field_list` SET `minimized` = @minimized WHERE `arrangement_card_id` = @arrangement_card_id;";
+
+			execNonQuery(sql, path, ref userMessage,
+				createParam("@arrangement_card_id", DbType.Int64, arrangementCardID),
+				createParam("@minimized", DbType.Int64, (minimized ? "1" : "0")));
+		}
+
 		/// <summary>Sets whether or not a list item is minimized in an arrangement.</summary>
 		/// <param name="arrangementCardID">The database ID of the arrangement card.</param>
 		/// <param name="minimized">Whether or not the list item is minimized.</param>
@@ -1821,6 +1903,9 @@ namespace NotecardLib
 				INSERT INTO `arrangement_field_text` (`arrangement_card_id`, `card_type_field_id`)
 				SELECT `ac_id`.`id`, `ctf`.`id` FROM `card_type_field` `ctf` JOIN `card_type` `ct` ON `ct`.`id` = `ctf`.`card_type_id` JOIN `card` `c` ON `c`.`card_type_id` = `ct`.`id` JOIN `ac_id` WHERE `c`.`id` = @card_id AND `ctf`.`field_type` = @text_type;
 
+				INSERT INTO `arrangement_field_list` (`arrangement_card_id`, `card_type_field_id`)
+				SELECT `ac_id`.`id`, `ctf`.`id` FROM `card_type_field` `ctf` JOIN `card_type` `ct` ON `ct`.`id` = `ctf`.`card_type_id` JOIN `card` `c` ON `c`.`card_type_id` = `ct`.`id` JOIN `ac_id` WHERE `c`.`id` = @card_id AND `ctf`.`field_type` = @list_type;
+
 				INSERT INTO `arrangement_card` (`arrangement_id`, `card_id`)
 				SELECT @arrangement_id, `value` FROM `field_list` `fl` WHERE `fl`.`card_id` = @card_id;
 
@@ -1840,7 +1925,8 @@ namespace NotecardLib
 				createParam("@x", DbType.Int64, x),
 				createParam("@y", DbType.Int64, y),
 				createParam("@width", DbType.Int64, width),
-				createParam("@text_type", DbType.Int64, (int)DataType.Text)
+				createParam("@text_type", DbType.Int64, (int)DataType.Text),
+				createParam("@list_type", DbType.Int64, (int)DataType.List)
 			};
 
 			return execReadField(sql, path, ref userMessage, parameters, "id");

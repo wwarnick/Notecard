@@ -23,6 +23,7 @@ namespace NotecardFront
 	{
 		#region Members
 
+		/// <summary>Whether or not to include the switch button.</summary>
 		private bool includeSwitch;
 
 		/// <summary>Whether or not to include the switch button.</summary>
@@ -37,26 +38,32 @@ namespace NotecardFront
 
 					if (includeSwitch)
 					{
+						// create switch button
 						Button btnSwitch = new Button()
 						{
 							Name = "btnSwitch",
 							Background = Brushes.Transparent,
 							BorderBrush = Brushes.Transparent,
 							BorderThickness = new Thickness(0d),
-							Foreground = btnRemoveItem.Foreground,
-							Content = "=",
 							MaxHeight = btnRemoveItem.MaxHeight,
+						};
+						btnSwitch.Click += btnSwitch_Click;
+						grdMain.Children.Add(btnSwitch);
+
+						// overlay switch label (separate so that we can center it across the menu)
+						TextBlock lblSwitch = new TextBlock()
+						{
+							Name = "lblSwitch",
+							Foreground = btnRemoveItem.Foreground,
+							Text = "=",
 							Padding = new Thickness(0d),
 							FontWeight = btnRemoveItem.FontWeight,
-							VerticalContentAlignment = VerticalAlignment.Center
+							VerticalAlignment = VerticalAlignment.Center,
+							HorizontalAlignment = HorizontalAlignment.Center,
+							IsHitTestVisible = false
 						};
-
-						Grid.SetColumnSpan(btnSwitch, 3);
-						Grid.SetZIndex(btnSwitch, -1);
-
-						btnSwitch.Click += btnSwitch_Click;
-
-						grdMain.Children.Add(btnSwitch);
+						Grid.SetColumnSpan(lblSwitch, 3);
+						grdMain.Children.Add(lblSwitch);
 					}
 					else
 					{
@@ -80,8 +87,10 @@ namespace NotecardFront
 			}
 		}
 
+		/// <summary>Determines how the minimize button will be displayed.</summary>
 		private bool minimized;
 
+		/// <summary>Determines how the minimize button will be displayed.</summary>
 		public bool Minimized
 		{
 			get { return minimized; }

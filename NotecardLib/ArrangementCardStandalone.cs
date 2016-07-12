@@ -17,6 +17,9 @@ namespace NotecardLib
 		/// <summary>The width of the card in the arrangement.</summary>
 		public int Width { get; set; }
 
+		/// <summary>The settings for all list fields.</summary>
+		public ArrangementFieldList[] ListFields { get; set; }
+
 		/// <summary>A list of all list items</summary>
 		public ArrangementCardList[] ListItems { get; set; }
 

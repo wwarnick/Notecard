@@ -50,7 +50,11 @@ namespace NotecardFront
 		public int HeightIncrease
 		{
 			get { return (int)Math.Round(txtValue.ActualHeight - txtValue.MinHeight); }
-			set { txtValue.Height = (double)value + txtValue.MinHeight; }
+			set
+			{
+				txtValue.Height = (double)value + txtValue.MinHeight;
+				txtValue.TextWrapping = value == 0 ? TextWrapping.NoWrap : TextWrapping.Wrap;
+			}
 		}
 
 		/// <summary>How far the cursor is from the upper-left corner of rctResize when dragging.</summary>

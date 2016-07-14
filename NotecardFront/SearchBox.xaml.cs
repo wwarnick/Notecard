@@ -79,13 +79,13 @@ namespace NotecardFront
 			}
 			else
 			{
-				List<string> names = CardManager.getCardNames(ids, Path, ref userMessage);
+				List<string[]> names = CardManager.getCardNames(ids, Path, ref userMessage);
 
-				Item<string>[] items = new Item<string>[ids.Count];
+				Item<string>[] items = new Item<string>[names.Count];
 
-				for (int i = 0; i < ids.Count; i++)
+				for (int i = 0; i < names.Count; i++)
 				{
-					items[i] = new Item<string>(names[i], ids[i]);
+					items[i] = new Item<string>(names[i][1], names[i][0]);
 				}
 
 				lstSearchResults.ItemsSource = items;

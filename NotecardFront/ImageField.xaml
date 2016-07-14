@@ -12,7 +12,7 @@
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
 
-        <Grid HorizontalAlignment="Center" Grid.Column="1" Background="Transparent" AllowDrop="True" PreviewDragEnter="Grid_PreviewDragEnterOver" PreviewDragOver="Grid_PreviewDragEnterOver" PreviewDrop="Grid_PreviewDrop" MouseEnter="Grid_MouseEnter" MouseLeave="Grid_MouseLeave">
+        <Grid Name="grdImage" HorizontalAlignment="Center" Grid.Column="1" Background="Transparent" AllowDrop="True" PreviewDragEnter="Grid_PreviewDragEnterOver" PreviewDragOver="Grid_PreviewDragEnterOver" PreviewDrop="Grid_PreviewDrop" MouseEnter="Grid_MouseEnter" MouseLeave="Grid_MouseLeave">
             <Image Name="imgImage" Visibility="Collapsed" MaxHeight="200" MaxWidth="200"/>
             <Button Name="btnDelete" HorizontalAlignment="Right" VerticalAlignment="Top" Width="20" Height="20" Visibility="Collapsed" Click="btnDelete_Click">X</Button>
             <Button Name="btnBrowse" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="5" Click="btnBrowse_Click">Browse...</Button>

@@ -26,6 +26,9 @@ namespace NotecardFront
 	{
 		#region Members
 
+		/// <summary>The different ways to open a card.</summary>
+		private enum CardOpenType { New, Existing, Refresh }
+
 		/// <summary>The path to the current database.</summary>
 		string path;
 
@@ -214,7 +217,7 @@ namespace NotecardFront
 
 				foreach (ArrangementCardStandalone c in cards)
 				{
-					openCard(c.CardID, c, false, ref userMessage);
+					openCard(c.CardID, c, CardOpenType.Refresh, ref userMessage);
 				}
 
 				refreshLines(ref userMessage);
@@ -224,10 +227,10 @@ namespace NotecardFront
 		/// <summary>Load an existing card onto the arrangement.</summary>
 		/// <param name="cardID">The database ID of the card to load.</param>
 		/// <param name="arrangementSettings">The card's settings for the current arrangement.</param>
-		/// <param name="addToArrangement">Whether or not to add the card to the current arrangement. false if it's already part of it.</param>
+		/// <param name="openType">The type of card load, whether it's a new card, an existing card, or already part of the arrangement.</param>
 		/// <param name="userMessage">Any user messages.</param>
 		/// <returns>The arrangement card ID</returns>
-		private string openCard(string cardID, ArrangementCardStandalone arrangementSettings, bool addToArrangement, ref string userMessage)
+		private string openCard(string cardID, ArrangementCardStandalone arrangementSettings, CardOpenType openType, ref string userMessage)
 		{
 			string cardTypeID = CardManager.getCardCardTypeID(cardID, path, ref userMessage);
 
@@ -240,14 +243,21 @@ namespace NotecardFront
 			if (arrangementSettings != null)
 			{
 				c.Width = arrangementSettings.Width;
-
 				Canvas.SetLeft(c, arrangementSettings.X);
 				Canvas.SetTop(c, arrangementSettings.Y);
 			}
 			else
 			{
+				c.Width = CardControl.DefaultWidth;
 				Canvas.SetLeft(c, 0);
 				Canvas.SetTop(c, 0);
+			}
+
+			// add to arrangement
+			if (openType == CardOpenType.Existing || openType == CardOpenType.New)
+			{
+				string arrangementCardID = CardManager.arrangementAddCard((string)lstArrangements.SelectedValue, cardID, 0, 0, (int)Math.Round(CardControl.DefaultWidth), (openType != CardOpenType.New), Path, ref userMessage);
+				arrangementSettings = CardManager.getArrangementCard(arrangementCardID, this.Path, ref userMessage);
 			}
 
 			c.refreshUI(Ancestries[cardTypeID], arrangementSettings, ref userMessage);
@@ -259,12 +269,6 @@ namespace NotecardFront
 
 			c.UpdateLayout();
 			bringToFront(c);
-
-			if (addToArrangement)
-			{
-				c.ArrangementCardID = CardManager.arrangementAddCard((string)lstArrangements.SelectedValue, cardID, 0, 0, (int)Math.Round(c.ActualWidth), Path, ref userMessage);
-				c.updateFieldArrangementIDs(ref userMessage);
-			}
 
 			return c.ArrangementCardID;
 		}
@@ -394,6 +398,9 @@ namespace NotecardFront
 			}
 		}
 
+		/// <summary>Loads an existing card onto the arrangement.</summary>
+		/// <param name="cardID">The database ID of the card to load.</param>
+		/// <param name="userMessage">Any user messages.</param>
 		private void loadExistingCard(string cardID, ref string userMessage)
 		{
 			if (!string.IsNullOrEmpty((string)lstArrangements.SelectedValue))
@@ -408,7 +415,7 @@ namespace NotecardFront
 						return;
 				}
 
-				openCard(cardID, null, true, ref userMessage);
+				openCard(cardID, null, CardOpenType.Existing, ref userMessage);
 			}
 		}
 
@@ -480,9 +487,9 @@ namespace NotecardFront
 			{
 				string cardID = CardManager.newCard(Ancestries[(string)cmbAddCardType.SelectedValue], path, ref userMessage);
 
-				string arrangementCardID = openCard(cardID, null, true, ref userMessage);
+				string arrangementCardID = openCard(cardID, null, CardOpenType.New, ref userMessage);
 
-				CardManager.setAllFieldListMinimized(arrangementCardID, false, path, ref userMessage);
+				//CardManager.setAllFieldListMinimized(arrangementCardID, false, path, ref userMessage);
 			}
 
 			if (!string.IsNullOrEmpty(userMessage))

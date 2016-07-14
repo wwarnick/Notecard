@@ -376,16 +376,14 @@ namespace NotecardFront
 		/// <param name="userMessage">Any user messages.</param>
 		public void updateArrangementIDs(List<string> ids, ref int itemIndex, ref string userMessage)
 		{
-			int listItemIndex = 0;
 			for (int i = 0; i < stkMain.Children.Count; i++)
 			{
 				string tag = (string)((FrameworkElement)stkMain.Children[i]).Tag;
 				if (tag == "menu" || tag == "label" || tag == "add")
 					continue;
 
-				((CardControl)stkMain.Children[listItemIndex]).ArrangementCardID = ids[itemIndex];
+				((CardControl)stkMain.Children[i]).ArrangementCardID = ids[itemIndex];
 				itemIndex++;
-				listItemIndex++;
 			}
 		}
 

@@ -30,7 +30,7 @@
                 <ComboBox Name="cmbAddCardType" Grid.Column="6" Margin="5 5 2.5 5" DisplayMemberPath="Text" SelectedValuePath="Value"/>
                 <Button Name="btnAddCard" Grid.Column="7" Margin="2.5 5 5 5" Click="btnAddCard_Click">Add Card</Button>
             </Grid>
-            <Grid DockPanel.Dock="Left" Width="125" Background="AliceBlue">
+            <Grid DockPanel.Dock="Left" Width="175" Background="AliceBlue">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="*"/>

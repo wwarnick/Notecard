@@ -137,7 +137,7 @@ namespace NotecardFront
 			}
 			else
 			{
-				btnSelection.Content = CardManager.getCardNames(new string[] { this.Value }, Path, ref userMessage)[0];
+				btnSelection.Content = CardManager.getCardNames(new string[] { this.Value }, Path, ref userMessage)[0][1];
 				btnSelection.Visibility = Visibility.Visible;
 				lblRemove.Visibility = Visibility.Visible;
 				txtSearch.Opacity = 0d;

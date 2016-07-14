@@ -1557,11 +1557,11 @@ namespace NotecardLib
 		/// <param name="ids">The database IDs of the cards.</param>
 		/// <param name="path">The path of the current database.</param>
 		/// <param name="userMessage">Any user messages.</param>
-		/// <returns>The names of the cards.</returns>
-		public static List<string> getCardNames(IEnumerable<string> ids, string path, ref string userMessage)
+		/// <returns>The ids and names of the cards.</returns>
+		public static List<string[]> getCardNames(IEnumerable<string> ids, string path, ref string userMessage)
 		{
 			string sql = @"
-				SELECT `ft`.`value`
+				SELECT `ft`.`card_id`, `ct`.`name` || ' - ' || `ft`.`value` AS `name`
 				FROM `field_text` `ft`
 					JOIN `card_type_field` `ctf` ON `ctf`.`id` = `ft`.`card_type_field_id`
 					JOIN `card_type` `ct` ON `ct`.`id` = `ctf`.`card_type_id` AND `ct`.`parent_id` IS NULL
@@ -1569,7 +1569,7 @@ namespace NotecardLib
 				WHERE `ctf2`.`id` IS NULL
 					AND `ft`.`card_id` IN (" + string.Join(",", ids) + ");";
 
-			return execReadListField(sql, path, ref userMessage, (IEnumerable<SQLiteParameter>)null, "value");
+			return execReadListFields(sql, path, ref userMessage, (IEnumerable<SQLiteParameter>)null, "card_id", "name");
 		}
 
 		/// <summary>Deletes a card from the database.</summary>
@@ -1631,6 +1631,77 @@ namespace NotecardLib
 		{
 			string sql = "SELECT `id`, `name` FROM `arrangement`;";
 			return execReadListFields(sql, path, ref userMessage, (IEnumerable<SQLiteParameter>)null, "id", "name");
+		}
+
+		/// <summary>Retrieves an arrangement card from the database.</summary>
+		/// <param name="arrangementCardID">The database ID of the arrangement card.</param>
+		/// <param name="path">The path of the current database.</param>
+		/// <param name="userMessage">Any user messages.</param>
+		/// <returns>The arrangement card.</returns>
+		public static ArrangementCardStandalone getArrangementCard(string arrangementCardID, string path, ref string userMessage)
+		{
+			string sql = @"
+				SELECT `ac`.`card_id`, `acs`.`x`, `acs`.`y`, `acs`.`width`, `ac`.`arrangement_id`
+				FROM `arrangement_card` `ac`
+					JOIN `arrangement_card_standalone` `acs` ON `acs`.`arrangement_card_id` = `ac`.`id`
+				WHERE `ac`.`id` = @id;";
+
+			string[] result = execReadFields(sql, path, ref userMessage, createParam("@id", DbType.Int64, arrangementCardID), "card_id", "x", "y", "width", "arrangement_id");
+
+			string arrangementID = result[4];
+
+			// build arrangement card
+			ArrangementCardStandalone card = new ArrangementCardStandalone(arrangementCardID, result[0], null, int.Parse(result[1]), int.Parse(result[2]), int.Parse(result[3]));
+
+			// get text fields
+			card.TextFields = getArrangementCardTextFields(card.ID, path, ref userMessage);
+
+			// get list fields
+			sql = @"
+				SELECT `ctf`.`id`, `afl`.`minimized`
+				FROM `arrangement_field_list` `afl`
+					JOIN `card_type_field` `ctf` ON `ctf`.`id` = `afl`.`card_type_field_id`
+				WHERE `afl`.`arrangement_card_id` = @arrangement_card_id;";
+			List<string[]> listFields = execReadListFields(sql, path, ref userMessage, createParam("@arrangement_card_id", DbType.Int64, arrangementCardID), "id", "minimized");
+
+			card.ListFields = new ArrangementFieldList[listFields.Count];
+			for (int j = 0; j < listFields.Count; j++)
+			{
+				card.ListFields[j] = new ArrangementFieldList(listFields[j][0], listFields[j][1] != "0");
+			}
+
+			// get list items
+			sql = @"
+				SELECT `ac`.`id`, `fl`.`card_id`, `acl`.`minimized`
+				FROM `field_list` `fl`
+					JOIN `card_type_field` `ctf` ON `ctf`.`id` = `fl`.`card_type_field_id`
+					JOIN `arrangement_card` `ac` ON `ac`.`card_id` = `fl`.`value`
+					JOIN `arrangement_card_list` `acl` ON `acl`.`arrangement_card_id` = `ac`.`id`
+				WHERE `fl`.`card_id` = @card_id
+					AND `ac`.`arrangement_id` = @arrangement_id
+				ORDER BY `ctf`.`sort_order`, `fl`.`sort_order`;";
+
+			SQLiteParameter[] listParams = new SQLiteParameter[]
+			{
+				createParam("@card_id", DbType.Int64, card.CardID),
+				createParam("@arrangement_id", DbType.Int64, arrangementID)
+			};
+
+			List<string[]> listItems = execReadListFields(sql, path, ref userMessage, listParams, "id", "card_id", "minimized");
+
+			if (listItems.Count > 0)
+			{
+				card.ListItems = new ArrangementCardList[listItems.Count];
+
+				for (int listIndex = 0; listIndex < listItems.Count; listIndex++)
+				{
+					string[] f = listItems[listIndex];
+					card.ListItems[listIndex] = new ArrangementCardList(f[0], f[1], getArrangementCardTextFields(f[0], path, ref userMessage), f[2] != "0");
+				}
+
+			}
+
+			return card;
 		}
 
 		/// <summary>Retrieves an arrangement from the database.</summary>
@@ -1724,7 +1795,8 @@ namespace NotecardLib
 				SELECT `ctf`.`id`, `aft`.`height_increase`
 				FROM `arrangement_field_text` `aft`
 					JOIN `card_type_field` `ctf` ON `ctf`.`id` = `aft`.`card_type_field_id`
-				WHERE `aft`.`arrangement_card_id` = @arrangement_card_id;";
+				WHERE `aft`.`arrangement_card_id` = @arrangement_card_id
+				ORDER BY `ctf`.`sort_order`;";
 			List<string[]> textFields = execReadListFields(sql, path, ref userMessage, createParam("@arrangement_card_id", DbType.Int64, arrangementCardID), "id", "height_increase");
 
 			ArrangementFieldText[] fields = new ArrangementFieldText[textFields.Count];
@@ -1884,10 +1956,11 @@ namespace NotecardLib
 		/// <param name="x">The x-coordinate of the card in the arrangement.</param>
 		/// <param name="y">The y-coordinate of the card in the arrangement.</param>
 		/// <param name="width">The width of the card in the arrangement.</param>
+		/// <param name="listFieldsMinimized">Whether or not all list fields are minimized.</param>
 		/// <param name="path">The path of the current database.</param>
 		/// <param name="userMessage">Any user messages.</param>
 		/// <returns>The database ID of the arrangement card.</returns>
-		public static string arrangementAddCard(string arrangementID, string cardID, int x, int y, int width, string path, ref string userMessage)
+		public static string arrangementAddCard(string arrangementID, string cardID, int x, int y, int width, bool listFieldsMinimized, string path, ref string userMessage)
 		{
 			string sql = @"
 				INSERT INTO `arrangement_card` (`arrangement_id`, `card_id`)
@@ -1903,8 +1976,8 @@ namespace NotecardLib
 				INSERT INTO `arrangement_field_text` (`arrangement_card_id`, `card_type_field_id`)
 				SELECT `ac_id`.`id`, `ctf`.`id` FROM `card_type_field` `ctf` JOIN `card_type` `ct` ON `ct`.`id` = `ctf`.`card_type_id` JOIN `card` `c` ON `c`.`card_type_id` = `ct`.`id` JOIN `ac_id` WHERE `c`.`id` = @card_id AND `ctf`.`field_type` = @text_type;
 
-				INSERT INTO `arrangement_field_list` (`arrangement_card_id`, `card_type_field_id`)
-				SELECT `ac_id`.`id`, `ctf`.`id` FROM `card_type_field` `ctf` JOIN `card_type` `ct` ON `ct`.`id` = `ctf`.`card_type_id` JOIN `card` `c` ON `c`.`card_type_id` = `ct`.`id` JOIN `ac_id` WHERE `c`.`id` = @card_id AND `ctf`.`field_type` = @list_type;
+				INSERT INTO `arrangement_field_list` (`arrangement_card_id`, `card_type_field_id`, `minimized`)
+				SELECT `ac_id`.`id`, `ctf`.`id`, @list_minimized FROM `card_type_field` `ctf` JOIN `card_type` `ct` ON `ct`.`id` = `ctf`.`card_type_id` JOIN `card` `c` ON `c`.`card_type_id` = `ct`.`id` JOIN `ac_id` WHERE `c`.`id` = @card_id AND `ctf`.`field_type` = @list_type;
 
 				INSERT INTO `arrangement_card` (`arrangement_id`, `card_id`)
 				SELECT @arrangement_id, `value` FROM `field_list` `fl` WHERE `fl`.`card_id` = @card_id;
@@ -1925,6 +1998,7 @@ namespace NotecardLib
 				createParam("@x", DbType.Int64, x),
 				createParam("@y", DbType.Int64, y),
 				createParam("@width", DbType.Int64, width),
+				createParam("@list_minimized", DbType.Int64, (listFieldsMinimized ? 1 : 0)),
 				createParam("@text_type", DbType.Int64, (int)DataType.Text),
 				createParam("@list_type", DbType.Int64, (int)DataType.List)
 			};

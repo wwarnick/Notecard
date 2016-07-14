@@ -163,7 +163,7 @@ namespace NotecardFront
 				this.Value = CardManager.addCardImage(CardID, CardTypeFieldID, Path, ref userMessage);
 				btnBrowse.Visibility = Visibility.Collapsed;
 				imgImage.Visibility = Visibility.Visible;
-				btnDelete.Visibility = Visibility.Visible;
+				btnDelete.Visibility = grdImage.IsMouseOver ? Visibility.Visible : Visibility.Hidden;
 			}
 
 			// resize image

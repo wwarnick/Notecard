@@ -25,6 +25,9 @@ namespace NotecardFront
 	{
 		#region Members
 
+		/// <summary>The default card width.</summary>
+		public const double DefaultWidth = 200d;
+
 		/// <summary>The various different highlight statuses.</summary>
 		public enum HighlightStatuses { Selected, Connected, None }
 

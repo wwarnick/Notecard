@@ -48,7 +48,9 @@
                 <Button Name="btnAddArrangement" Grid.Row="3" Margin="5 5 2.5 5" Click="btnAddArrangement_Click">Add</Button>
                 <Button Name="btnRemoveArrangement" Grid.Row="3" Grid.Column="1" Margin="2.5 5 5 5" Click="btnRemoveArrangement_Click">Remove</Button>
             </Grid>
-            <Canvas Name="pnlMain"/>
+            <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                <Grid Name="pnlMain" ClipToBounds="True"/>
+            </ScrollViewer>
         </DockPanel>
         <local:CardTypeSettings x:Name="lclCardTypeSettings" Visibility="Collapsed" VerticalAlignment="Top" HorizontalAlignment="Left" IsVisibleChanged="lclCardTypeSettings_IsVisibleChanged"/>
     </Grid>

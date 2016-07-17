@@ -39,7 +39,7 @@ namespace NotecardFront
 					if (includeSwitch)
 					{
 						// create switch button
-						Button btnSwitch = new Button()
+						btnSwitch = new Button()
 						{
 							Name = "btnSwitch",
 							Background = Brushes.Transparent,
@@ -51,7 +51,7 @@ namespace NotecardFront
 						grdMain.Children.Add(btnSwitch);
 
 						// overlay switch label (separate so that we can center it across the menu)
-						TextBlock lblSwitch = new TextBlock()
+						lblSwitch = new TextBlock()
 						{
 							Name = "lblSwitch",
 							Foreground = btnRemoveItem.Foreground,
@@ -67,11 +67,67 @@ namespace NotecardFront
 					}
 					else
 					{
-						grdMain.Children.Remove((Button)grdMain.FindName("btnSwitch"));
+						grdMain.Children.Remove(btnSwitch);
+						grdMain.Children.Remove(lblSwitch);
+
+						btnSwitch = null;
+						lblSwitch = null;
 					}
 				}
 			}
 		}
+
+		/// <summary>The switch button.</summary>
+		public Button btnSwitch { get; private set; }
+
+		/// <summary>The label for the switch button.</summary>
+		public TextBlock lblSwitch { get; private set; }
+
+		/// <summary>Whether or not to include the minimize button.</summary>
+		private bool includeMinimize;
+
+		/// <summary>Whether or not to include the minimize button.</summary>
+		public bool IncludeMinimize
+		{
+			get { return includeMinimize; }
+			set
+			{
+				if (includeMinimize != value)
+				{
+					includeMinimize = value;
+					//<Button Name="btnMinimizeItem" Content="-" Grid.Column="1" Background="Transparent" BorderBrush="Transparent" BorderThickness="0" Padding="5 0 5 0" VerticalContentAlignment="Center" MaxHeight="15" FontWeight="Bold" Click="btnMinimizeItem_Click"/>
+
+					if (includeMinimize)
+					{
+						// create minimize button
+						btnMinimizeItem = new Button()
+						{
+							Name = "btnMinimizeItem",
+							Background = Brushes.Transparent,
+							BorderBrush = Brushes.Transparent,
+							BorderThickness = new Thickness(0d),
+							MaxHeight = btnRemoveItem.MaxHeight,
+							Padding = new Thickness(5d, 0d, 5d, 0d),
+							VerticalContentAlignment = VerticalAlignment.Center,
+							FontWeight = btnRemoveItem.FontWeight,
+							Foreground = btnRemoveItem.Foreground,
+							Content = "-"
+						};
+						Grid.SetColumn(btnMinimizeItem, 1);
+						btnMinimizeItem.Click += btnMinimizeItem_Click;
+						grdMain.Children.Add(btnMinimizeItem);
+					}
+					else
+					{
+						grdMain.Children.Remove(btnMinimizeItem);
+						btnMinimizeItem = null;
+					}
+				}
+			}
+		}
+
+		/// <summary>The minimize button.</summary>
+		public Button btnMinimizeItem { get; private set; }
 
 		/// <summary>The button foreground brush.</summary>
 		public Brush ForeColor
@@ -79,11 +135,13 @@ namespace NotecardFront
 			get { return btnRemoveItem.Foreground; }
 			set
 			{
-				btnMinimizeItem.Foreground = value;
+				if (IncludeMinimize)
+					btnMinimizeItem.Foreground = value;
+
 				btnRemoveItem.Foreground = value;
 
 				if (IncludeSwitch)
-					((Button)grdMain.FindName("btnSwitch")).Foreground = value;
+					lblSwitch.Foreground = value;
 			}
 		}
 
@@ -97,7 +155,8 @@ namespace NotecardFront
 			set
 			{
 				minimized = value;
-				btnMinimizeItem.Content = minimized ? "+" : "-";
+				if (IncludeMinimize)
+					btnMinimizeItem.Content = minimized ? "+" : "-";
 			}
 		}
 
@@ -118,6 +177,8 @@ namespace NotecardFront
 		public ListItemMenu()
 		{
 			InitializeComponent();
+
+			includeMinimize = false;
 		}
 
 		#endregion Constructors

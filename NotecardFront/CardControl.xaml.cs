@@ -103,6 +103,12 @@ namespace NotecardFront
 			}
 		}
 
+		/// <summary>Returns whether or not there is more than one field.</summary>
+		public bool HasMultipleFields
+		{
+			get { return stkMain.Children.Count > 1; }
+		}
+
 		/// <summary>Whether or not the card control is minimized (shows only the first field).</summary>
 		private bool minimized;
 
@@ -248,7 +254,7 @@ namespace NotecardFront
 					Background = Brushes.Transparent,
 					Foreground = Brushes.White,
 					FontWeight = FontWeights.Bold,
-					Content = "-"
+					Content = "_"
 				};
 				btnArchive.Click += btnArchive_Click;
 				Grid.SetColumn(btnArchive, 1);
@@ -283,6 +289,7 @@ namespace NotecardFront
 			int listFieldIndex = 0;
 			int listItemIndex = 0;
 			int imageFieldIndex = 0;
+			int checkBoxFieldIndex = 0;
 			foreach (CardType ct in CardTypes)
 			{
 				foreach (CardTypeField f in ct.Fields)
@@ -374,8 +381,8 @@ namespace NotecardFront
 								};
 
 								list.refresh(arrangementSettings, ref listItemIndex, ref userMessage);
-
 								list.Minimized = minimized;
+								list.OpenCard += ListField_OpenCard;
 
 								stkMain.Children.Add(list);
 
@@ -403,6 +410,25 @@ namespace NotecardFront
 								imageFieldIndex++;
 							}
 							break;
+						case DataType.CheckBox:
+							CheckBoxField chk = new CheckBoxField()
+							{
+								Path = this.Path,
+								CardID = this.CardID,
+								CardTypeFieldID = f.ID,
+								ArrangementCardID = ((arrangementSettings == null) ? null : arrangementSettings.ID),
+								FieldIndex = fieldIndex,
+								Value = (bool)CardData.Fields[fieldIndex],
+								ShowLabel = f.ShowLabel,
+								LabelText = f.Name
+							};
+
+							chk.ValueChanged += CheckBoxField_ValueChanged;
+							chk.refresh();
+							stkMain.Children.Add(chk);
+
+							checkBoxFieldIndex++;
+							break;
 						default:
 							MessageBox.Show("Unknown field type: " + f.FieldType.ToString());
 							break;
@@ -411,19 +437,6 @@ namespace NotecardFront
 					fieldIndex++;
 				}
 			}
-		}
-
-		/// <summary>Updates the card field's value.</summary>
-		private void CardField_ValueChanged(object sender, EventArgs e)
-		{
-			CardField cf = (CardField)sender;
-			CardData.Fields[cf.FieldIndex] = cf.Value;
-		}
-
-		/// <summary>Opens the selected card.</summary>
-		private void CardField_OpenCard(object sender, EventArgs e)
-		{
-			OpenCard?.Invoke(this, new EventArgs<string>() { Value = ((CardField)sender).Value });
 		}
 
 		/// <summary>Update the text field's value.</summary>
@@ -441,6 +454,25 @@ namespace NotecardFront
 			//this.Height = double.NaN;
 		}
 
+		/// <summary>Updates the card field's value.</summary>
+		private void CardField_ValueChanged(object sender, EventArgs e)
+		{
+			CardField cf = (CardField)sender;
+			CardData.Fields[cf.FieldIndex] = cf.Value;
+		}
+
+		/// <summary>Opens the selected card.</summary>
+		private void CardField_OpenCard(object sender, EventArgs e)
+		{
+			OpenCard?.Invoke(this, new EventArgs<string>() { Value = ((CardField)sender).Value });
+		}
+
+		/// <summary>Opens the selected card.</summary>
+		private void ListField_OpenCard(object sender, EventArgs<string> e)
+		{
+			OpenCard?.Invoke(this, e);
+		}
+
 		/// <summary>Updates the card size.</summary>
 		private void ImageField_Added(object sender, EventArgs e)
 		{
@@ -448,10 +480,17 @@ namespace NotecardFront
 			MovedOrResized?.Invoke(this, EventArgs.Empty);
 		}
 
-		/// <summary>Update the value.</summary>
+		/// <summary>Update the image field's value.</summary>
 		private void ImageField_Deleted(object sender, EventArgs e)
 		{
 			CardData.Fields[((ImageField)sender).FieldIndex] = null;
+		}
+
+		/// <summary>Update the checkbox field's value.</summary>
+		private void CheckBoxField_ValueChanged(object sender, EventArgs e)
+		{
+			CheckBoxField chk = (CheckBoxField)sender;
+			CardData.Fields[chk.FieldIndex] = chk.Value;
 		}
 
 		/// <summary>Updates the arrangement card IDs of all fields.</summary>
@@ -481,6 +520,9 @@ namespace NotecardFront
 					case DataType.Image:
 						// do nothing
 						break;
+					case DataType.CheckBox:
+						((CheckBoxField)ui).ArrangementCardID = this.ArrangementCardID;
+						break;
 					default:
 						userMessage += "Unknown data type: " + ((DataType)ui.Tag).ToString();
 						break;
@@ -491,7 +533,7 @@ namespace NotecardFront
 		/// <summary>Archive the card.</summary>
 		private void btnArchive_Click(object sender, RoutedEventArgs e)
 		{
-			((Canvas)this.Parent).Children.Remove(this);
+			((Panel)this.Parent).Children.Remove(this);
 
 			Archived?.Invoke(this, EventArgs.Empty);
 		}
@@ -501,7 +543,7 @@ namespace NotecardFront
 		{
 			string userMessage = string.Empty;
 
-			((Canvas)this.Parent).Children.Remove(this);
+			((Panel)this.Parent).Children.Remove(this);
 
 			CardManager.deleteCard(CardData.ID, Path, ref userMessage);
 
@@ -548,9 +590,10 @@ namespace NotecardFront
 			}
 
 			Point cursor = e.MouseDevice.GetPosition((UIElement)this.Parent);
+			cursor.X = Math.Max(cursor.X, 0d);
+			cursor.Y = Math.Max(cursor.Y, 0d);
 
-			Canvas.SetLeft(this, cursor.X - dragOffset.X);
-			Canvas.SetTop(this, cursor.Y - dragOffset.Y);
+			this.Margin = new Thickness(cursor.X - dragOffset.X, cursor.Y - dragOffset.Y, 0d, 0d);
 		}
 
 		/// <summary>Prepare to resize the card to the left.</summary>
@@ -576,11 +619,12 @@ namespace NotecardFront
 			}
 
 			Point cursor = e.MouseDevice.GetPosition(rResizeL);
+			cursor.X = Math.Max(cursor.X, 0d);
 
 			double diff = cursor.X - dragOffset.X;
 
 			this.Width = this.ActualWidth - diff;
-			Canvas.SetLeft(this, Canvas.GetLeft(this) + diff);
+			this.Margin = new Thickness(this.Margin.Left + diff, this.Margin.Top, 0d, 0d);
 		}
 
 		/// <summary>Prepare to resize the card to the right.</summary>

@@ -38,7 +38,8 @@ namespace NotecardFront
 					new Item<string>("Text", ((int)DataType.Text).ToString()),
 					new Item<string>("Card", ((int)DataType.Card).ToString()),
 					new Item<string>("List", ((int)DataType.List).ToString()),
-					new Item<string>("Image", ((int)DataType.Image).ToString())
+					new Item<string>("Image", ((int)DataType.Image).ToString()),
+					new Item<string>("Checkbox", ((int)DataType.CheckBox).ToString())
 				};
 			cmbCardTypeFieldType.ItemsSource = items;
 
@@ -47,7 +48,8 @@ namespace NotecardFront
 				{
 					new Item<string>("Text", ((int)DataType.Text).ToString()),
 					new Item<string>("Card", ((int)DataType.Card).ToString()),
-					new Item<string>("Image", ((int)DataType.Image).ToString())
+					new Item<string>("Image", ((int)DataType.Image).ToString()),
+					new Item<string>("Checkbox", ((int)DataType.CheckBox).ToString())
 				};
 			cmbListFieldType.ItemsSource = items;
 
@@ -55,9 +57,11 @@ namespace NotecardFront
 			Item<int>[] iItems = new Item<int>[]
 				{
 					new Item<int>("Red", 175 * 16 * 16 * 16 * 16),
+					new Item<int>("Orange", 100 * 16 * 16 + 200 * 16 * 16 * 16 * 16),
 					new Item<int>("Yellow", 150 * 16 * 16 + 150 * 16 * 16 * 16 * 16),
 					new Item<int>("Green", 128 * 16 * 16),
-					new Item<int>("Blue", 255)
+					new Item<int>("Blue", 255),
+					new Item<int>("Purple", 150 + 150 * 16 * 16 * 16 * 16)
 				};
 			cmbCardTypeColor.ItemsSource = iItems;
 
@@ -429,7 +433,9 @@ namespace NotecardFront
 				txtCardTypeFieldName.Text = ctf.Name;
 				cmbCardTypeFieldType.SelectedValue = ((int)ctf.FieldType).ToString();
 				cmbCardTypeFieldCardType.SelectedValue = (ctf.FieldType != DataType.Card) ? null : string.IsNullOrEmpty(ctf.RefCardTypeID) ? string.Empty : ctf.RefCardTypeID;
+				cmbCardTypeFieldCardType.IsEnabled = ctf.FieldType == DataType.Card;
 				chkCardTypeFieldShowLabel.IsChecked = ctf.ShowLabel;
+				chkCardTypeFieldShowLabel.IsEnabled = ctf.FieldType != DataType.List;
 
 				grdCardTypeField.IsEnabled = true;
 			}
@@ -445,10 +451,32 @@ namespace NotecardFront
 
 			if (!string.IsNullOrEmpty((string)lstCardTypeField.SelectedValue) && !string.IsNullOrEmpty((string)cmbCardTypeFieldType.SelectedValue) && (int)CurCardType.Fields[lstCardTypeField.SelectedIndex].FieldType != int.Parse((string)cmbCardTypeFieldType.SelectedValue))
 			{
-				CardManager.saveCardType((string)lstCardType.SelectedValue, new CardTypeChg(CardTypeChange.CardTypeFieldTypeChange, (string)lstCardTypeField.SelectedValue, (DataType)int.Parse((string)cmbCardTypeFieldType.SelectedValue)), Path, ref userMessage);
+				DataType fieldType = (DataType)int.Parse((string)cmbCardTypeFieldType.SelectedValue);
+				CardManager.saveCardType((string)lstCardType.SelectedValue, new CardTypeChg(CardTypeChange.CardTypeFieldTypeChange, (string)lstCardTypeField.SelectedValue, fieldType), Path, ref userMessage);
 
 				refreshCurCardType(ref userMessage);
 				refreshListFieldList(ref userMessage);
+
+				if (fieldType == DataType.Card)
+				{
+					cmbCardTypeFieldCardType.IsEnabled = true;
+					cmbCardTypeFieldCardType.SelectedIndex = 0;
+				}
+				else
+				{
+					cmbCardTypeFieldCardType.IsEnabled = false;
+					cmbCardTypeFieldCardType.SelectedValue = null;
+				}
+
+				if (fieldType == DataType.List)
+				{
+					chkCardTypeFieldShowLabel.IsEnabled = false;
+					chkCardTypeFieldShowLabel.IsChecked = true;
+				}
+				else
+				{
+					chkCardTypeFieldShowLabel.IsEnabled = true;
+				}
 			}
 
 			showMessages(userMessage);
@@ -601,6 +629,7 @@ namespace NotecardFront
 				txtListFieldName.Text = ctf.Name;
 				cmbListFieldType.SelectedValue = ((int)ctf.FieldType).ToString();
 				cmbListFieldCardType.SelectedValue = (ctf.FieldType != DataType.Card) ? null : string.IsNullOrEmpty(ctf.RefCardTypeID) ? string.Empty : ctf.RefCardTypeID;
+				cmbListFieldCardType.IsEnabled = ctf.FieldType == DataType.Card;
 				chkListFieldShowLabel.IsChecked = ctf.ShowLabel;
 
 				grdListField.IsEnabled = true;
@@ -630,9 +659,21 @@ namespace NotecardFront
 
 			if (!string.IsNullOrEmpty((string)lstListField.SelectedValue) && !string.IsNullOrEmpty((string)cmbListFieldType.SelectedValue) && (int)CurCardType.Fields[lstCardTypeField.SelectedIndex].ListType.Fields[lstListField.SelectedIndex].FieldType != int.Parse((string)cmbListFieldType.SelectedValue))
 			{
-				CardManager.saveCardType(CurCardType.Fields[lstCardTypeField.SelectedIndex].RefCardTypeID, new CardTypeChg(CardTypeChange.CardTypeFieldTypeChange, (string)lstListField.SelectedValue, (DataType)int.Parse((string)cmbListFieldType.SelectedValue)), Path, ref userMessage);
+				DataType fieldType = (DataType)int.Parse((string)cmbListFieldType.SelectedValue);
+				CardManager.saveCardType(CurCardType.Fields[lstCardTypeField.SelectedIndex].RefCardTypeID, new CardTypeChg(CardTypeChange.CardTypeFieldTypeChange, (string)lstListField.SelectedValue, fieldType), Path, ref userMessage);
 
 				refreshCurCardType(ref userMessage);
+
+				if (fieldType == DataType.Card)
+				{
+					cmbListFieldCardType.IsEnabled = true;
+					cmbListFieldCardType.SelectedIndex = 0;
+				}
+				else
+				{
+					cmbListFieldCardType.IsEnabled = false;
+					cmbListFieldCardType.SelectedValue = null;
+				}
 			}
 
 			showMessages(userMessage);

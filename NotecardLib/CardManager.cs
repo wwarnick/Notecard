@@ -223,6 +223,32 @@ namespace NotecardLib
 					UNIQUE (`card_id`, `card_type_field_id`)
 				);
 
+				CREATE INDEX `idx_fi_card_id`
+					ON `field_image` (`card_id`);
+
+				CREATE INDEX `idx_fi_card_type_field_id`
+					ON `field_image` (`card_type_field_id`);
+
+				CREATE TABLE `field_checkbox` (
+					`id` INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+					`card_id` INTEGER NOT NULL
+						REFERENCES `card` (`id`)
+						ON UPDATE CASCADE ON DELETE CASCADE
+						DEFERRABLE INITIALLY DEFERRED,
+					`card_type_field_id` INTEGER NOT NULL
+						REFERENCES `card_type_field` (`id`)
+						ON UPDATE CASCADE ON DELETE CASCADE
+						DEFERRABLE INITIALLY DEFERRED,
+					`value` INTEGER NOT NULL DEFAULT 0,
+					UNIQUE (`card_id`, `card_type_field_id`)
+				);
+
+				CREATE INDEX `idx_fch_card_id`
+					ON `field_checkbox` (`card_id`);
+
+				CREATE INDEX `idx_fch_card_type_field_id`
+					ON `field_checkbox` (`card_type_field_id`);
+
 				CREATE TABLE `arrangement` (
 					`id` INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
 					`name` TEXT NOT NULL DEFAULT '',
@@ -440,7 +466,7 @@ namespace NotecardLib
 								WHERE `card_type_id` IN (" + oldParents + ")));");
 
 				// delete fields
-				string[] fieldTableNames = new string[] { "field_text", "field_card", "field_list" };
+				string[] fieldTableNames = new string[] { "field_text", "field_card", "field_list", "field_image", "field_checkbox" };
 
 				foreach (string fieldTableName in fieldTableNames)
 				{
@@ -459,6 +485,7 @@ namespace NotecardLib
 
 				StringBuilder fieldText = new StringBuilder();
 				StringBuilder fieldCard = new StringBuilder();
+				StringBuilder fieldCheckBox = new StringBuilder();
 
 				foreach (CardType parent in newParents)
 				{
@@ -473,7 +500,14 @@ namespace NotecardLib
 								fieldCard.Append((fieldCard.Length > 0 ? ", " : "") + f.ID);
 								break;
 							case DataType.List:
+							case DataType.Image:
 								// do nothing
+								break;
+							case DataType.CheckBox:
+								fieldCheckBox.Append((fieldCheckBox.Length > 0 ? ", " : "") + f.ID);
+								break;
+							default:
+								userMessage += "Unknown field type: " + f.FieldType.ToString();
 								break;
 						}
 					}
@@ -496,6 +530,16 @@ namespace NotecardLib
 						SELECT `c`.`id`, `ctf`.`id`, NULL
 						FROM `card` `c`
 							JOIN `card_type_field` `ctf` ON `ctf`.`id` IN (" + fieldCard.ToString() + @")
+						WHERE `c`.`card_type_id` IN (" + descendents + ");");
+				}
+
+				if (fieldCheckBox.Length > 0)
+				{
+					sql.Append(@"
+						INSERT INTO `field_checkbox` (`card_id`, `card_type_field_id`, `value`)
+						SELECT `c`.`id`, `ctf`.`id`, NULL
+						FROM `card` `c`
+							JOIN `card_type_field` `ctf` ON `ctf`.`id` IN (" + fieldCheckBox.ToString() + @")
 						WHERE `c`.`card_type_id` IN (" + descendents + ");");
 				}
 			}
@@ -654,6 +698,10 @@ namespace NotecardLib
 					sql.Append(@"
 						DELETE FROM `field_image` WHERE `card_type_field_id` = @card_type_field_id;");
 					break;
+				case DataType.CheckBox:
+					sql.Append(@"
+						DELETE FROM `field_checkbox` WHERE `card_type_field_id` = card_type_field_id;");
+					break;
 				default:
 					userMessage += "Unkown field type: " + oldField.FieldType.ToString();
 					break;
@@ -679,6 +727,8 @@ namespace NotecardLib
 					break;
 				case DataType.List:
 					sql.Append(@"
+						UPDATE `card_type_field` SET `show_label` = 1 WHERE `id` = @card_type_field_id;
+
 						INSERT INTO `card_type` (`context`) VALUES (@list_context);
 						UPDATE `card_type_field` SET `ref_card_type_id` = LAST_INSERT_ROWID() WHERE `id` = @card_type_field_id;
 
@@ -688,6 +738,11 @@ namespace NotecardLib
 					break;
 				case DataType.Image:
 					// do nothing
+					break;
+				case DataType.CheckBox:
+					sql.Append(@"
+						INSERT INTO `field_checkbox` (`card_id`, `card_type_field_id`, `value`)
+						SELECT `id`, @card_type_field_id, 0 FROM `card` WHERE `card_type_id` IN (" + descendents + ");");
 					break;
 				default:
 					userMessage += "Unknown field type: " + newType.ToString();
@@ -990,7 +1045,9 @@ namespace NotecardLib
 
 			while (hasChildren)
 			{
-				List<string> results = execReadListField((sql + ids.ToString() + ");"), path, ref userMessage, (List<SQLiteParameter>)null, "id");
+				string idStr = ids.ToString();
+
+				List<string> results = execReadListField((sql + idStr + ") AND `id` NOT IN (" + idStr + ");"), path, ref userMessage, (List<SQLiteParameter>)null, "id");
 				hasChildren = results.Count > 0;
 				foreach (string result in results)
 				{
@@ -1032,8 +1089,19 @@ namespace NotecardLib
 		{
 			string descendents = getCardTypeDescendents(cardTypeID, path, ref userMessage);
 
-			string sql = "SELECT `id`, `name` FROM `card_type` WHERE `id` NOT IN (" + descendents + ");";
-			return execReadListFields(sql, path, ref userMessage, (IEnumerable<SQLiteParameter>)null, "id", "name");
+			string sql = "SELECT `id`, `name` FROM `card_type` WHERE `id` NOT IN (" + descendents + ") AND `context` = @context;";
+			return execReadListFields(sql, path, ref userMessage, createParam("@context", DbType.Int64, (int)CardTypeContext.Standalone), "id", "name");
+		}
+
+		/// <summary>Returns the database ID of the card type of the specified card.</summary>
+		/// <param name="cardID">The database ID of the card.</param>
+		/// <param name="path">The path of the current database.</param>
+		/// <param name="userMessage">Any user messages.</param>
+		/// <returns>The database ID of the card type of the specified card.</returns>
+		public static string getCardTypeIDFromCardID(string cardID, string path, ref string userMessage)
+		{
+			string sql = "SELECT `card_type_id` FROM `card` WHERE `id` = @id;";
+			return execReadField(sql, path, ref userMessage, createParam("@id", DbType.Int64, cardID), "card_type_id");
 		}
 
 		#endregion Card Types
@@ -1061,6 +1129,7 @@ namespace NotecardLib
 			// insert fields
 			StringBuilder fieldText = new StringBuilder();
 			StringBuilder fieldCard = new StringBuilder();
+			StringBuilder fieldCheckBox = new StringBuilder();
 			parameters.Clear();
 
 			foreach (CardType ct in cardTypes)
@@ -1083,6 +1152,11 @@ namespace NotecardLib
 						case DataType.Image:
 							// do nothing
 							break;
+						case DataType.CheckBox:
+							fieldCheckBox.Append((fieldCheckBox.Length > 0 ? ", " : "") + @"
+								(@card_id, " + getNextParamName("card_type_field_id") + ")");
+							parameters.Add(createParam(CurParamName, DbType.Int64, f.ID));
+							break;
 						default:
 							userMessage += "Unknown field type: " + f.FieldType;
 							break;
@@ -1102,6 +1176,12 @@ namespace NotecardLib
 			{
 				sql.Append(@"
 					INSERT INTO `field_card` (`card_id`, `card_type_field_id`) VALUES" + fieldCard.ToString() + ";");
+			}
+
+			if (fieldCheckBox.Length > 0)
+			{
+				sql.Append(@"
+					INSERT INTO `field_checkbox` (`card_id`, `card_type_field_id`) VALUES" + fieldCheckBox.ToString() + ";");
 			}
 
 			if (sql.Length > 0)
@@ -1151,6 +1231,18 @@ namespace NotecardLib
 			};
 
 			execNonQuery(sql, path, ref userMessage, parameters);
+		}
+
+		/// <summary>Saves a card checkbox field.</summary>
+		/// <param name="value">The value to save to the card checkbox field.</param>
+		/// <param name="cardID">The card's database ID.</param>
+		/// <param name="cardTypeFieldID">The card type field's database ID.</param>
+		/// <param name="path">The path of the current database.</param>
+		/// <param name="userMessage">Any user messages.</param>
+		public static void saveCardCheckBoxField(bool value, string cardID, string cardTypeFieldID, string path, ref string userMessage)
+		{
+			string sql = "UPDATE `field_checkbox` SET `value` = @value WHERE `card_id` = @card_id AND `card_type_field_id` = @card_type_field_id;";
+			execNonQuery(sql, path, ref userMessage, createParam("@value", DbType.Int64, (value ? 1 : 0)), createParam("@card_id", DbType.Int64, cardID), createParam("@card_type_field_id", DbType.Int64, cardTypeFieldID));
 		}
 
 		/// <summary>Adds an image to a card field.</summary>
@@ -1225,6 +1317,7 @@ namespace NotecardLib
 				bool hasCardField = false;
 				bool hasListField = false;
 				bool hasImageField = false;
+				bool hasCheckBoxField = false;
 
 				foreach (CardTypeField f in ct.Fields)
 				{
@@ -1242,25 +1335,25 @@ namespace NotecardLib
 						case DataType.Image:
 							hasImageField = true;
 							break;
+						case DataType.CheckBox:
+							hasCheckBoxField = true;
+							break;
 						default:
 							userMessage += "Unknown field type: " + f.FieldType.ToString();
 							break;
 					}
-
-					if (hasTextField && hasCardField && hasListField)
-						break;
 				}
 
 				// get text fields
 				if (hasTextField)
 				{
 					string sql = @"
-					SELECT `ft`.`value`, `ctf`.`card_type_id`
-					FROM `field_text` `ft`
-						JOIN `card_type_field` `ctf` ON `ctf`.`id` = `ft`.`card_type_field_id`
-					WHERE `ft`.`card_id` = @card_id
-						AND `ctf`.`card_type_id` = @card_type_id
-					ORDER BY `ctf`.`sort_order` ASC;";
+						SELECT `ft`.`value`, `ctf`.`card_type_id`
+						FROM `field_text` `ft`
+							JOIN `card_type_field` `ctf` ON `ctf`.`id` = `ft`.`card_type_field_id`
+						WHERE `ft`.`card_id` = @card_id
+							AND `ctf`.`card_type_id` = @card_type_id
+						ORDER BY `ctf`.`sort_order` ASC;";
 					List<string> textFieldResult = execReadListField(sql, path, ref userMessage, parameters, "value");
 
 					// fill text fields
@@ -1278,12 +1371,12 @@ namespace NotecardLib
 				if (hasCardField)
 				{
 					string sql = @"
-					SELECT `fc`.*
-					FROM `field_card` `fc`
-						JOIN `card_type_field` `ctf` ON `ctf`.`id` = `fc`.`card_type_field_id`
-					WHERE `fc`.`card_id` = @card_id
-						AND `ctf`.`card_type_id` = @card_type_id
-					ORDER BY `ctf`.`sort_order` ASC;";
+						SELECT `fc`.*
+						FROM `field_card` `fc`
+							JOIN `card_type_field` `ctf` ON `ctf`.`id` = `fc`.`card_type_field_id`
+						WHERE `fc`.`card_id` = @card_id
+							AND `ctf`.`card_type_id` = @card_type_id
+						ORDER BY `ctf`.`sort_order` ASC;";
 					List<string> cardFieldResult = execReadListField(sql, path, ref userMessage, parameters, "value");
 
 					// fill card fields
@@ -1368,6 +1461,29 @@ namespace NotecardLib
 						if (ct.Fields[i].FieldType == DataType.Image)
 						{
 							card.Fields[pastFields + i] = imageFieldResult[j];
+							j++;
+						}
+					}
+				}
+
+				// get checkbox fields
+				if (hasCheckBoxField)
+				{
+					string sql = @"
+						SELECT `fch`.`value`, `ctf`.`card_type_id`
+						FROM `field_checkbox` `fch`
+							JOIN `card_type_field` `ctf` ON `ctf`.`id` = `fch`.`card_type_field_id`
+						WHERE `fch`.`card_id` = @card_id
+							AND `ctf`.`card_type_id` = @card_type_id
+						ORDER BY `ctf`.`sort_order` ASC;";
+					List<string> checkBoxFieldResult = execReadListField(sql, path, ref userMessage, parameters, "value");
+
+					// fill checkbox fields
+					for (int i = 0, j = 0; i < ct.Fields.Count && j < checkBoxFieldResult.Count; i++)
+					{
+						if (ct.Fields[i].FieldType == DataType.CheckBox)
+						{
+							card.Fields[pastFields + i] = checkBoxFieldResult[j] != "0";
 							j++;
 						}
 					}
@@ -1512,13 +1628,13 @@ namespace NotecardLib
 		public static List<string> search(string query, string cardTypes, string path, ref string userMessage)
 		{
 			// TODO: sort by relevance (number of keyword matches)
-			query = query.ToUpper();
+
 			string[] keywords = query.Split(' ');
 
 			StringBuilder sql = new StringBuilder();
 			foreach (string keyword in keywords)
 			{
-				sql.Append((sql.Length > 0 ? " OR " : "") + "UPPER(`ft`.`value`) LIKE '%" + keyword + "%'");
+				sql.Append((sql.Length > 0 ? " OR " : "") + "`ft`.`value` LIKE '%" + keyword + "%'");
 			}
 
 			if (sql.Length > 0)
@@ -1638,68 +1754,31 @@ namespace NotecardLib
 		/// <param name="path">The path of the current database.</param>
 		/// <param name="userMessage">Any user messages.</param>
 		/// <returns>The arrangement card.</returns>
-		public static ArrangementCardStandalone getArrangementCard(string arrangementCardID, string path, ref string userMessage)
+		public static ArrangementCardStandalone getArrangementCard(string arrangementCardID, Dictionary<string, List<string>> ancestries, string path, ref string userMessage)
 		{
 			string sql = @"
-				SELECT `ac`.`card_id`, `acs`.`x`, `acs`.`y`, `acs`.`width`, `ac`.`arrangement_id`
-				FROM `arrangement_card` `ac`
+				SELECT `ac`.`card_id`, `acs`.`x`, `acs`.`y`, `acs`.`width`, `ac`.`arrangement_id`, `c`.`card_type_id`
+				FROM `card` `c`
+					JOIN `arrangement_card` `ac` ON `ac`.`card_id` = `c`.`id`
 					JOIN `arrangement_card_standalone` `acs` ON `acs`.`arrangement_card_id` = `ac`.`id`
 				WHERE `ac`.`id` = @id;";
 
-			string[] result = execReadFields(sql, path, ref userMessage, createParam("@id", DbType.Int64, arrangementCardID), "card_id", "x", "y", "width", "arrangement_id");
+			string[] result = execReadFields(sql, path, ref userMessage, createParam("@id", DbType.Int64, arrangementCardID), "card_id", "x", "y", "width", "arrangement_id", "card_type_id");
 
 			string arrangementID = result[4];
+			List<string> ancestry = ancestries[result[5]];
 
 			// build arrangement card
 			ArrangementCardStandalone card = new ArrangementCardStandalone(arrangementCardID, result[0], null, int.Parse(result[1]), int.Parse(result[2]), int.Parse(result[3]));
 
 			// get text fields
-			card.TextFields = getArrangementCardTextFields(card.ID, path, ref userMessage);
+			card.TextFields = getArrangementCardTextFields(card.ID, ancestry, path, ref userMessage);
 
 			// get list fields
-			sql = @"
-				SELECT `ctf`.`id`, `afl`.`minimized`
-				FROM `arrangement_field_list` `afl`
-					JOIN `card_type_field` `ctf` ON `ctf`.`id` = `afl`.`card_type_field_id`
-				WHERE `afl`.`arrangement_card_id` = @arrangement_card_id;";
-			List<string[]> listFields = execReadListFields(sql, path, ref userMessage, createParam("@arrangement_card_id", DbType.Int64, arrangementCardID), "id", "minimized");
-
-			card.ListFields = new ArrangementFieldList[listFields.Count];
-			for (int j = 0; j < listFields.Count; j++)
-			{
-				card.ListFields[j] = new ArrangementFieldList(listFields[j][0], listFields[j][1] != "0");
-			}
+			card.ListFields = getArrangementCardListFields(card.ID, ancestry, path, ref userMessage);
 
 			// get list items
-			sql = @"
-				SELECT `ac`.`id`, `fl`.`card_id`, `acl`.`minimized`
-				FROM `field_list` `fl`
-					JOIN `card_type_field` `ctf` ON `ctf`.`id` = `fl`.`card_type_field_id`
-					JOIN `arrangement_card` `ac` ON `ac`.`card_id` = `fl`.`value`
-					JOIN `arrangement_card_list` `acl` ON `acl`.`arrangement_card_id` = `ac`.`id`
-				WHERE `fl`.`card_id` = @card_id
-					AND `ac`.`arrangement_id` = @arrangement_id
-				ORDER BY `ctf`.`sort_order`, `fl`.`sort_order`;";
-
-			SQLiteParameter[] listParams = new SQLiteParameter[]
-			{
-				createParam("@card_id", DbType.Int64, card.CardID),
-				createParam("@arrangement_id", DbType.Int64, arrangementID)
-			};
-
-			List<string[]> listItems = execReadListFields(sql, path, ref userMessage, listParams, "id", "card_id", "minimized");
-
-			if (listItems.Count > 0)
-			{
-				card.ListItems = new ArrangementCardList[listItems.Count];
-
-				for (int listIndex = 0; listIndex < listItems.Count; listIndex++)
-				{
-					string[] f = listItems[listIndex];
-					card.ListItems[listIndex] = new ArrangementCardList(f[0], f[1], getArrangementCardTextFields(f[0], path, ref userMessage), f[2] != "0");
-				}
-
-			}
+			card.ListItems = getArrangementCardListItems(arrangementID, card.CardID, ancestry, path, ref userMessage);
 
 			return card;
 		}
@@ -1709,7 +1788,7 @@ namespace NotecardLib
 		/// <param name="path">The path of the current database.</param>
 		/// <param name="userMessage">Any user messages.</param>
 		/// <returns>The cards in the arrangement.</returns>
-		public static ArrangementCardStandalone[] getArrangement(string arrangementID, string path, ref string userMessage)
+		public static ArrangementCardStandalone[] getArrangement(string arrangementID, Dictionary<string, List<string>> ancestries, string path, ref string userMessage)
 		{
 			string sql = @"
 				SELECT `ac`.`id`, `ac`.`card_id`, `acs`.`x`, `acs`.`y`, `acs`.`width`
@@ -1733,48 +1812,19 @@ namespace NotecardLib
 				string[] result = results[i];
 				ArrangementCardStandalone card = new ArrangementCardStandalone(result[0], result[1], null, int.Parse(result[2]), int.Parse(result[3]), int.Parse(result[4]));
 
+				sql = "SELECT `card_type_id` FROM `card` WHERE `id` = @id;";
+				string cardTypeID = execReadField(sql, path, ref userMessage, createParam("@id", DbType.Int64, card.CardID), "card_type_id");
+
+				List<string> ancestry = ancestries[cardTypeID];
+
 				// get text fields
-				card.TextFields = getArrangementCardTextFields(card.ID, path, ref userMessage);
+				card.TextFields = getArrangementCardTextFields(card.ID, ancestry, path, ref userMessage);
 
 				// get list fields
-				sql = @"
-					SELECT `ctf`.`id`, `afl`.`minimized`
-					FROM `arrangement_field_list` `afl`
-						JOIN `card_type_field` `ctf` ON `ctf`.`id` = `afl`.`card_type_field_id`
-					WHERE `afl`.`arrangement_card_id` = @arrangement_card_id;";
-				List<string[]> listFields = execReadListFields(sql, path, ref userMessage, createParam("@arrangement_card_id", DbType.Int64, card.ID), "id", "minimized");
-
-				card.ListFields = new ArrangementFieldList[listFields.Count];
-				for (int j = 0; j < listFields.Count; j++)
-				{
-					card.ListFields[j] = new ArrangementFieldList(listFields[j][0], listFields[j][1] != "0");
-				}
+				card.ListFields = getArrangementCardListFields(card.ID, ancestry, path, ref userMessage);
 
 				// get list items
-				sql = @"
-					SELECT `ac`.`id`, `fl`.`card_id`, `acl`.`minimized`
-					FROM `field_list` `fl`
-						JOIN `card_type_field` `ctf` ON `ctf`.`id` = `fl`.`card_type_field_id`
-						JOIN `arrangement_card` `ac` ON `ac`.`card_id` = `fl`.`value`
-						JOIN `arrangement_card_list` `acl` ON `acl`.`arrangement_card_id` = `ac`.`id`
-					WHERE `fl`.`card_id` = @card_id
-						AND `ac`.`arrangement_id` = @arrangement_id
-					ORDER BY `ctf`.`sort_order`, `fl`.`sort_order`;";
-
-				listParams[0] = createParam("@card_id", DbType.Int64, card.CardID);
-				List<string[]> listItems = execReadListFields(sql, path, ref userMessage, listParams, "id", "card_id", "minimized");
-
-				if (listItems.Count > 0)
-				{
-					card.ListItems = new ArrangementCardList[listItems.Count];
-
-					for (int listIndex = 0; listIndex < listItems.Count; listIndex++)
-					{
-						string[] f = listItems[listIndex];
-						card.ListItems[listIndex] = new ArrangementCardList(f[0], f[1], getArrangementCardTextFields(f[0], path, ref userMessage), f[2] != "0");
-					}
-
-				}
+				card.ListItems = getArrangementCardListItems(arrangementID, card.CardID, ancestry, path, ref userMessage);
 
 				// finish card
 				cards[i] = card;
@@ -1782,22 +1832,127 @@ namespace NotecardLib
 
 			return cards;
 		}
+		/// <summary>Retrieves the arrangement card list item settings.</summary>
+		/// <param name="arrangementID">The database ID of the owning arrangement.</param>
+		/// <param name="cardID">The database ID of the owning card.</param>
+		/// <param name="ancestry">A list of database IDs of the card type's ancestry.</param>
+		/// <param name="path">The path of the current database.</param>
+		/// <param name="userMessage">Any user messages.</param>
+		/// <returns>The arrangement card list item settings.</returns>
+		private static ArrangementCardList[] getArrangementCardListItems(string arrangementID, string cardID, List<string> ancestry, string path, ref string userMessage)
+		{
+			StringBuilder bSql = new StringBuilder();
+			for (int j = 0; j < ancestry.Count; j++)
+			{
+				if (j > 0)
+				{
+					bSql.Append(@"
+						UNION ALL");
+				}
+
+				bSql.Append(@"
+						SELECT `ac`.`id`, `fl`.`card_id`, `acl`.`minimized`, `c`.`card_type_id`, " + j + @" AS `type_order`, `ctf`.`sort_order` AS `field_order`, `fl`.`sort_order` AS `item_order`
+						FROM `field_list` `fl`
+							JOIN `card_type_field` `ctf` ON `ctf`.`id` = `fl`.`card_type_field_id`
+							JOIN `card` `c` ON `c`.`id` = `fl`.`value`
+							JOIN `arrangement_card` `ac` ON `ac`.`card_id` = `c`.`id`
+							JOIN `arrangement_card_list` `acl` ON `acl`.`arrangement_card_id` = `ac`.`id`
+						WHERE `fl`.`card_id` = @card_id
+							AND `ac`.`arrangement_id` = @arrangement_id
+							AND `ctf`.`card_type_id` = " + ancestry[j]);
+			}
+			bSql.Append(@"
+					ORDER BY `type_order`, `field_order`, `item_order`;");
+
+			SQLiteParameter[] listParams = new SQLiteParameter[]
+			{
+				createParam("@card_id", DbType.Int64, cardID),
+				createParam("@arrangement_id", DbType.Int64, arrangementID)
+			};
+
+			List<string[]> listItems = execReadListFields(bSql.ToString(), path, ref userMessage, listParams, "id", "card_id", "minimized", "card_type_id");
+
+			ArrangementCardList[] results = null;
+			if (listItems.Count > 0)
+			{
+				results = new ArrangementCardList[listItems.Count];
+
+				for (int listIndex = 0; listIndex < listItems.Count; listIndex++)
+				{
+					string[] f = listItems[listIndex];
+					results[listIndex] = new ArrangementCardList(f[0], f[1], getArrangementCardTextFields(f[0], new List<string>() { f[3] }, path, ref userMessage), f[2] != "0");
+				}
+			}
+
+			return results;
+		}
+
+		/// <summary>Retrieves the arrangement card list field settings.</summary>
+		/// <param name="arrangementCardID">The database ID of the owning arrangement card.</param>
+		/// <param name="ancestry">A list of database IDs of the card type's ancestry.</param>
+		/// <param name="path">The path of the current database.</param>
+		/// <param name="userMessage">Any user messages.</param>
+		/// <returns>The arrangement card list field settings.</returns>
+		private static ArrangementFieldList[] getArrangementCardListFields(string arrangementCardID, List<string> ancestry, string path, ref string userMessage)
+		{
+			StringBuilder bSql = new StringBuilder();
+			for (int i = 0; i < ancestry.Count; i++)
+			{
+				if (i > 0)
+				{
+					bSql.Append(@"
+						UNION ALL");
+				}
+
+				bSql.Append(@"
+						SELECT `ctf`.`id`, `afl`.`minimized`, " + i + @" AS `type_order`, `ctf`.`sort_order`
+						FROM `arrangement_field_list` `afl`
+							JOIN `card_type_field` `ctf` ON `ctf`.`id` = `afl`.`card_type_field_id`
+						WHERE `afl`.`arrangement_card_id` = @arrangement_card_id
+							AND `ctf`.`card_type_id` = " + ancestry[i]);
+			}
+			bSql.Append(@"
+						ORDER BY `type_order`, `sort_order`;");
+
+			List<string[]> listFields = execReadListFields(bSql.ToString(), path, ref userMessage, createParam("@arrangement_card_id", DbType.Int64, arrangementCardID), "id", "minimized");
+
+			ArrangementFieldList[] results = new ArrangementFieldList[listFields.Count];
+			for (int j = 0; j < listFields.Count; j++)
+			{
+				results[j] = new ArrangementFieldList(listFields[j][0], listFields[j][1] != "0");
+			}
+
+			return results;
+		}
 
 		/// <summary>Retrieves the arrangement card text field settings.</summary>
 		/// <param name="arrangementCardID">The database ID of the owning arrangement card.</param>
+		/// <param name="ancestry">A list of database IDs of the card type's ancestry.</param>
 		/// <param name="path">The path of the current database.</param>
-		/// <param name="fields">The text field settings.</param>
 		/// <param name="userMessage">Any user messages.</param>
 		/// <returns>The text field settings.</returns>
-		private static ArrangementFieldText[] getArrangementCardTextFields(string arrangementCardID, string path, ref string userMessage)
+		private static ArrangementFieldText[] getArrangementCardTextFields(string arrangementCardID, List<string> ancestry, string path, ref string userMessage)
 		{
-			string sql = @"
-				SELECT `ctf`.`id`, `aft`.`height_increase`
-				FROM `arrangement_field_text` `aft`
-					JOIN `card_type_field` `ctf` ON `ctf`.`id` = `aft`.`card_type_field_id`
-				WHERE `aft`.`arrangement_card_id` = @arrangement_card_id
-				ORDER BY `ctf`.`sort_order`;";
-			List<string[]> textFields = execReadListFields(sql, path, ref userMessage, createParam("@arrangement_card_id", DbType.Int64, arrangementCardID), "id", "height_increase");
+			StringBuilder bSql = new StringBuilder();
+			for (int i = 0; i < ancestry.Count; i++)
+			{
+				if (i > 0)
+				{
+					bSql.Append(@"
+					UNION ALL");
+				}
+
+				bSql.Append(@"
+					SELECT `ctf`.`id`, `aft`.`height_increase`, " + i + @" AS `type_order`, `ctf`.`sort_order`
+					FROM `arrangement_field_text` `aft`
+						JOIN `card_type_field` `ctf` ON `ctf`.`id` = `aft`.`card_type_field_id`
+					WHERE `aft`.`arrangement_card_id` = @arrangement_card_id
+						AND `ctf`.`card_type_id` = " + ancestry[i]);
+			}
+			bSql.Append(@"
+					ORDER BY `type_order`, `sort_order`;");
+
+			List<string[]> textFields = execReadListFields(bSql.ToString(), path, ref userMessage, createParam("@arrangement_card_id", DbType.Int64, arrangementCardID), "id", "height_increase");
 
 			ArrangementFieldText[] fields = new ArrangementFieldText[textFields.Count];
 			for (int j = 0; j < textFields.Count; j++)
@@ -1962,6 +2117,8 @@ namespace NotecardLib
 		/// <returns>The database ID of the arrangement card.</returns>
 		public static string arrangementAddCard(string arrangementID, string cardID, int x, int y, int width, bool listFieldsMinimized, string path, ref string userMessage)
 		{
+			string types = string.Join(",", getCardTypeAncestryIDs(getCardTypeIDFromCardID(cardID, path, ref userMessage), path, ref userMessage));
+
 			string sql = @"
 				INSERT INTO `arrangement_card` (`arrangement_id`, `card_id`)
 				VALUES (@arrangement_id, @card_id);
@@ -1974,10 +2131,18 @@ namespace NotecardLib
 				SELECT `id`, @x, @y, @width FROM `ac_id`;
 
 				INSERT INTO `arrangement_field_text` (`arrangement_card_id`, `card_type_field_id`)
-				SELECT `ac_id`.`id`, `ctf`.`id` FROM `card_type_field` `ctf` JOIN `card_type` `ct` ON `ct`.`id` = `ctf`.`card_type_id` JOIN `card` `c` ON `c`.`card_type_id` = `ct`.`id` JOIN `ac_id` WHERE `c`.`id` = @card_id AND `ctf`.`field_type` = @text_type;
+				SELECT `ac_id`.`id`, `ctf`.`id`
+				FROM `card_type_field` `ctf`
+					JOIN `ac_id`
+				WHERE `ctf`.`field_type` = @text_type
+					AND `ctf`.`card_type_id` IN (" + types + @");
 
 				INSERT INTO `arrangement_field_list` (`arrangement_card_id`, `card_type_field_id`, `minimized`)
-				SELECT `ac_id`.`id`, `ctf`.`id`, @list_minimized FROM `card_type_field` `ctf` JOIN `card_type` `ct` ON `ct`.`id` = `ctf`.`card_type_id` JOIN `card` `c` ON `c`.`card_type_id` = `ct`.`id` JOIN `ac_id` WHERE `c`.`id` = @card_id AND `ctf`.`field_type` = @list_type;
+				SELECT `ac_id`.`id`, `ctf`.`id`, @list_minimized
+				FROM `card_type_field` `ctf`
+					JOIN `ac_id`
+				WHERE `ctf`.`field_type` = @list_type
+					AND `ctf`.`card_type_id` IN (" + types + @");
 
 				INSERT INTO `arrangement_card` (`arrangement_id`, `card_id`)
 				SELECT @arrangement_id, `value` FROM `field_list` `fl` WHERE `fl`.`card_id` = @card_id;
@@ -1986,8 +2151,18 @@ namespace NotecardLib
 				SELECT `ac`.`id`
 				FROM `arrangement_card` `ac`
 					JOIN `field_list` `fl` ON `fl`.`value` = `ac`.`card_id`
-				WHERE `arrangement_id` = @arrangement_id
+				WHERE `ac`.`arrangement_id` = @arrangement_id
 					AND `fl`.`card_id` = @card_id;
+
+				INSERT INTO `arrangement_field_text` (`arrangement_card_id`, `card_type_field_id`)
+				SELECT `ac`.`id`, `ctf`.`id`
+				FROM `field_list` `fl`
+					JOIN `card` `c` ON `c`.`id` = `fl`.`value`
+					JOIN `arrangement_card` `ac` ON `ac`.`card_id` = `c`.`id`
+					JOIN `card_type_field` `ctf` ON `ctf`.`card_type_id` = `c`.`card_type_id`
+				WHERE `ac`.`arrangement_id` = @arrangement_id
+					AND `fl`.`card_id` = @card_id
+					AND `ctf`.`field_type` = @text_type;
 
 				SELECT `id` FROM `ac_id`;";
 

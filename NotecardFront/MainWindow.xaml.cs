@@ -50,6 +50,9 @@ namespace NotecardFront
 		/// <summary>Each card type's ancestry.</summary>
 		Dictionary<string, List<CardType>> Ancestries;
 
+		/// <summary>Each card type's ancestry database IDs.</summary>
+		Dictionary<string, List<string>> AncestryIDs;
+
 		#endregion Members
 
 		#region Constructors
@@ -63,6 +66,7 @@ namespace NotecardFront
 
 			CardTypes = new Dictionary<string, CardType>();
 			Ancestries = new Dictionary<string, List<CardType>>();
+			AncestryIDs = new Dictionary<string, List<string>>();
 
 			// start with an empty file
 			newFile(ref userMessage);
@@ -81,6 +85,7 @@ namespace NotecardFront
 		{
 			CardTypes.Clear();
 			Ancestries.Clear();
+			AncestryIDs.Clear();
 
 			pnlMain.Children.Clear();
 
@@ -184,22 +189,29 @@ namespace NotecardFront
 			}
 
 			cmbAddCardType.ItemsSource = items;
+			if (cmbAddCardType.Items.Count > 0)
+				cmbAddCardType.SelectedIndex = 0;
 
 			// fill Ancestries
 			Ancestries.Clear();
+			AncestryIDs.Clear();
 			foreach (CardType ct in tempCardTypes)
 			{
 				List<CardType> ancestry = new List<CardType>() { ct };
+				List<string> ancestryIDs = new List<string>() { ct.ID };
 
 				CardType temp = ct;
 				while (!string.IsNullOrEmpty(temp.ParentID))
 				{
 					temp = CardTypes[temp.ParentID];
 					ancestry.Add(temp);
+					ancestryIDs.Add(temp.ID);
 				}
 
 				ancestry.Reverse();
+				ancestryIDs.Reverse();
 				Ancestries.Add(ct.ID, ancestry);
+				AncestryIDs.Add(ct.ID, ancestryIDs);
 			}
 
 			refreshArrangement(ref userMessage);
@@ -213,7 +225,7 @@ namespace NotecardFront
 
 			if (!string.IsNullOrEmpty((string)lstArrangements.SelectedValue))
 			{
-				ArrangementCardStandalone[] cards = CardManager.getArrangement((string)lstArrangements.SelectedValue, Path, ref userMessage);
+				ArrangementCardStandalone[] cards = CardManager.getArrangement((string)lstArrangements.SelectedValue, AncestryIDs, Path, ref userMessage);
 
 				foreach (ArrangementCardStandalone c in cards)
 				{
@@ -237,27 +249,27 @@ namespace NotecardFront
 			CardControl c = new CardControl()
 			{
 				CardID = cardID,
-				Path = path
+				Path = path,
+				HorizontalAlignment = HorizontalAlignment.Left,
+				VerticalAlignment = VerticalAlignment.Top
 			};
 
 			if (arrangementSettings != null)
 			{
 				c.Width = arrangementSettings.Width;
-				Canvas.SetLeft(c, arrangementSettings.X);
-				Canvas.SetTop(c, arrangementSettings.Y);
+				c.Margin = new Thickness(arrangementSettings.X, arrangementSettings.Y, 0d, 0d);
 			}
 			else
 			{
 				c.Width = CardControl.DefaultWidth;
-				Canvas.SetLeft(c, 0);
-				Canvas.SetTop(c, 0);
+				c.Margin = new Thickness(0d);
 			}
 
 			// add to arrangement
 			if (openType == CardOpenType.Existing || openType == CardOpenType.New)
 			{
 				string arrangementCardID = CardManager.arrangementAddCard((string)lstArrangements.SelectedValue, cardID, 0, 0, (int)Math.Round(CardControl.DefaultWidth), (openType != CardOpenType.New), Path, ref userMessage);
-				arrangementSettings = CardManager.getArrangementCard(arrangementCardID, this.Path, ref userMessage);
+				arrangementSettings = CardManager.getArrangementCard(arrangementCardID, AncestryIDs, this.Path, ref userMessage);
 			}
 
 			c.refreshUI(Ancestries[cardTypeID], arrangementSettings, ref userMessage);
@@ -277,14 +289,14 @@ namespace NotecardFront
 		/// <param name="el">The element.</param>
 		private void bringToFront(UIElement el)
 		{
-			int oldZ = Canvas.GetZIndex(el);
+			int oldZ = Panel.GetZIndex(el);
 
 			// if already at the front
 			if (oldZ == pnlMain.Children.Count)
 				return;
 
 			// move the element to the front
-			Canvas.SetZIndex(el, pnlMain.Children.Count);
+			Panel.SetZIndex(el, pnlMain.Children.Count);
 
 			// if not in the order yet
 			if (oldZ == 0)
@@ -296,9 +308,9 @@ namespace NotecardFront
 				if (ui == el)
 					continue;
 
-				int z = Canvas.GetZIndex(ui);
+				int z = Panel.GetZIndex(ui);
 				if (z > oldZ)
-					Canvas.SetZIndex(ui, z - 1);
+					Panel.SetZIndex(ui, z - 1);
 			}
 		}
 
@@ -306,14 +318,14 @@ namespace NotecardFront
 		/// <param name="el">The element.</param>
 		private void sendToBack(UIElement el)
 		{
-			int oldZ = Canvas.GetZIndex(el);
+			int oldZ = Panel.GetZIndex(el);
 
 			// if already at the back
 			if (oldZ == 1)
 				return;
 
 			// move the element to the back
-			Canvas.SetZIndex(el, 1);
+			Panel.SetZIndex(el, 1);
 
 			// if not in the order yet
 			if (oldZ == 0)
@@ -325,9 +337,9 @@ namespace NotecardFront
 				if (ui == el)
 					continue;
 
-				int z = Canvas.GetZIndex(ui);
+				int z = Panel.GetZIndex(ui);
 				if (z < oldZ)
-					Canvas.SetZIndex(ui, z + 1);
+					Panel.SetZIndex(ui, z + 1);
 			}
 		}
 
@@ -353,7 +365,8 @@ namespace NotecardFront
 					continue;
 				}
 
-				positions.Add(((CardControl)ui).CardID, new Point(Canvas.GetLeft(ui) + ui.ActualWidth / 2d, Canvas.GetTop(ui) + ui.ActualHeight / 2d));
+				//positions.Add(((CardControl)ui).CardID, new Point(Canvas.GetLeft(ui) + ui.ActualWidth / 2d, Canvas.GetTop(ui) + ui.ActualHeight / 2d));
+				positions.Add(((CardControl)ui).CardID, new Point(ui.Margin.Left + ui.ActualWidth / 2d, ui.Margin.Top + ui.ActualHeight / 2d));
 			}
 
 			foreach (string[] connection in connections)
@@ -387,11 +400,14 @@ namespace NotecardFront
 					Y2 = y2,
 					Stroke = Brushes.Black,
 					StrokeThickness = 4,
-					Tag = "line"
+					Tag = "line",
+					HorizontalAlignment = HorizontalAlignment.Left,
+					VerticalAlignment = VerticalAlignment.Top
 				};
 
-				Canvas.SetLeft(line, Math.Min(point1.X, point2.X));
-				Canvas.SetTop(line, Math.Min(point1.Y, point2.Y));
+				//Canvas.SetLeft(line, Math.Min(point1.X, point2.X));
+				//Canvas.SetTop(line, Math.Min(point1.Y, point2.Y));
+				line.Margin = new Thickness(Math.Min(point1.X, point2.X), Math.Min(point1.Y, point2.Y), 0d, 0d);
 
 				pnlMain.Children.Add(line);
 				sendToBack(line);
@@ -438,7 +454,8 @@ namespace NotecardFront
 			string userMessage = string.Empty;
 
 			CardControl card = (CardControl)sender;
-			CardManager.setCardPosAndSize((string)lstArrangements.SelectedValue, (string)card.Tag, (int)Math.Round(Canvas.GetLeft(card)), (int)Math.Round(Canvas.GetTop(card)), (int)Math.Round(card.ActualWidth), Path, ref userMessage);
+			//CardManager.setCardPosAndSize((string)lstArrangements.SelectedValue, (string)card.Tag, (int)Math.Round(Canvas.GetLeft(card)), (int)Math.Round(Canvas.GetTop(card)), (int)Math.Round(card.ActualWidth), Path, ref userMessage);
+			CardManager.setCardPosAndSize((string)lstArrangements.SelectedValue, (string)card.Tag, (int)Math.Round(card.Margin.Left), (int)Math.Round(card.Margin.Top), (int)Math.Round(card.ActualWidth), Path, ref userMessage);
 
 			if (!string.IsNullOrEmpty(userMessage))
 				MessageBox.Show(userMessage);
@@ -580,6 +597,7 @@ namespace NotecardFront
 				clearCurrentDir(ref userMessage);
 				CardTypes.Clear();
 				Ancestries.Clear();
+				AncestryIDs.Clear();
 				pnlMain.Children.Clear();
 
 				try
@@ -669,6 +687,9 @@ namespace NotecardFront
 		private void MainWindow_Closing(object sender, System.ComponentModel.CancelEventArgs e)
 		{
 			string userMessage = string.Empty;
+
+			if (lclCardTypeSettings.Visibility == Visibility.Visible)
+				lclCardTypeSettings.Visibility = Visibility.Collapsed;
 
 			clearCurrentDir(ref userMessage);
 

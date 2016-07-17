@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 namespace NotecardLib
 {
 	/// <summary>Represents one of the possible card field datatypes.</summary>
-	public enum DataType { Text = 0, Card = 1, List = 2, Image = 3 } // in future, add date, image, etc.
+	public enum DataType { Text = 0, Card = 1, List = 2, Image = 3, CheckBox = 4 } // in future, add date, image, etc.
 
 	public class CardTypeField
 	{

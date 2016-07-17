@@ -77,6 +77,9 @@ namespace NotecardFront
 			}
 		}
 
+		/// <summary>Fired when a card field link is clicked.</summary>
+		public event EventHandler<string> OpenCard;
+
 		#endregion Members
 
 		#region Constructors
@@ -138,7 +141,8 @@ namespace NotecardFront
 				Background = Tools.colorToSum(ListType.ColorRed, ListType.ColorGreen, ListType.ColorBlue, 450),
 				ForeColor = Brushes.White,
 				Tag = "menu",
-				IncludeSwitch = includeSwitch
+				IncludeSwitch = includeSwitch,
+				IncludeMinimize = true
 			};
 
 			menu.Switch += Menu_Switch;
@@ -314,6 +318,7 @@ namespace NotecardFront
 			};
 
 			item.refreshUI(new List<CardType>() { listType }, arrangementCard, ref userMessage);
+			item.OpenCard += ListItem_OpenCard;
 
 			return item;
 		}
@@ -397,6 +402,12 @@ namespace NotecardFront
 
 			if (!string.IsNullOrEmpty(userMessage))
 				MessageBox.Show(userMessage);
+		}
+
+		/// <summary>Opens a card in the current arrangement.</summary>
+		private void ListItem_OpenCard(object sender, EventArgs<string> e)
+		{
+			OpenCard?.Invoke(this, e);
 		}
 
 		#endregion Methods

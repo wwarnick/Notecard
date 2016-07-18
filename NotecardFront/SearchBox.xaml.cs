@@ -79,7 +79,7 @@ namespace NotecardFront
 			}
 			else
 			{
-				List<string[]> names = CardManager.getCardNames(ids, Path, ref userMessage);
+				List<string[]> names = CardManager.getCardNames(ids, string.IsNullOrEmpty(CardTypes), Path, ref userMessage);
 
 				Item<string>[] items = new Item<string>[names.Count];
 

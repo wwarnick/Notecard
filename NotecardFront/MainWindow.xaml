@@ -4,9 +4,11 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:NotecardFront"
+        xmlns:sys="clr-namespace:System;assembly=mscorlib"
         mc:Ignorable="d"
         Title="NoteCard" Height="531.915" Width="860.851"
-        Closing="MainWindow_Closing">
+        Closing="MainWindow_Closing"
+        Icon="images/icon.ico">
     <Grid>
         <DockPanel Name="dckMain">
             <Grid DockPanel.Dock="Top" Height="30" Background="LightBlue">
@@ -14,39 +16,69 @@
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="55"/>
                     <ColumnDefinition Width="255"/>
-                    <ColumnDefinition Width="80"/>
-                    <ColumnDefinition Width="180"/>
-                    <ColumnDefinition Width="80"/>
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
-                <Button Name="btnNew" Grid.Column="0" Width="50" Margin="5 5 2.5 5" Click="btnNew_Click">New</Button>
-                <Button Name="btnOpen" Grid.Column="1" Width="50" Margin="2.5 5 2.5 5" Click="btnOpen_Click">Open</Button>
-                <Button Name="btnSaveAs" Grid.Column="2" Width="50" Margin="2.5 5 5 5" Click="btnSaveAs_Click">Save As</Button>
-                <TextBlock Name="lblSearch" HorizontalAlignment="Right" VerticalAlignment="Center" Padding="0" Margin="5 5 2.5 5" Grid.Column="3">Search:</TextBlock>
-                <local:SearchBox x:Name="txtSearch" Grid.Column="4" Margin="2.5 5 5 5" SelectionMade="txtSearch_SelectionMade"/>
-                <Button Name="btnShowCardTypes" Grid.Column="5" Margin="5" Click="btnShowCardTypes_Click">Card Types</Button>
-                <ComboBox Name="cmbAddCardType" Grid.Column="6" Margin="5 5 2.5 5" DisplayMemberPath="Text" SelectedValuePath="Value"/>
-                <Button Name="btnAddCard" Grid.Column="7" Margin="2.5 5 5 5" Click="btnAddCard_Click">Add Card</Button>
+                <Button Name="btnNew" ToolTip="New" Grid.Column="0" Margin="5 5 2.5 5" Width="{Binding ActualWidth, ElementName=btnOpen}" Background="Transparent" BorderThickness="0" BorderBrush="Transparent" Click="btnNew_Click">
+                    <Image Source="images/New.png"/>
+                </Button>
+                <Button Name="btnOpen" ToolTip="Open" Grid.Column="1" Margin="2.5 5 2.5 5" Background="Transparent" BorderThickness="0" BorderBrush="Transparent" Click="btnOpen_Click">
+                    <Image Source="images/Open.png"/>
+                </Button>
+                <Button Name="btnSave" ToolTip="Save" Grid.Column="2" Margin="2.5 5 5 5" Width="{Binding ActualWidth, ElementName=btnOpen}" Background="Transparent" BorderThickness="0" BorderBrush="Transparent" Click="btnSave_Click">
+                    <Image Source="images/Save.png"/>
+                </Button>
+                <Button Name="btnSaveAs" ToolTip="Save As" Grid.Column="3" Margin="2.5 5 5 5" Width="{Binding ActualWidth, ElementName=btnOpen}" Background="Transparent" BorderThickness="0" BorderBrush="Transparent" Click="btnSaveAs_Click">
+                    <Image Source="images/SaveAs.png"/>
+                </Button>
+                <TextBlock Name="lblSearch" HorizontalAlignment="Right" VerticalAlignment="Center" Padding="0" Margin="5 5 2.5 5" Grid.Column="4">Search:</TextBlock>
+                <local:SearchBox x:Name="txtSearch" Grid.Column="5" Margin="2.5 5 5 5" SelectionMade="txtSearch_SelectionMade"/>
             </Grid>
             <Grid DockPanel.Dock="Left" Width="175" Background="AliceBlue">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="20"/>
-                    <RowDefinition Height="25"/>
                     <RowDefinition Height="*"/>
-                    <RowDefinition Height="30"/>
+                    <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
 
-                <TextBlock Grid.ColumnSpan="2" HorizontalAlignment="Center">Arrangements</TextBlock>
-                <TextBox Name="txtArrangementName" Grid.ColumnSpan="2" Grid.Row="1" Margin="5 0 5 5" LostFocus="txtArrangementName_LostFocus"/>
-                <ListBox Name="lstArrangements" Grid.ColumnSpan="2" Grid.Row="2" Margin="5 0 5 0" DisplayMemberPath="Text" SelectedValuePath="Value" SelectionChanged="lstArrangements_SelectionChanged"/>
-                <Button Name="btnAddArrangement" Grid.Row="3" Margin="5 5 2.5 5" Click="btnAddArrangement_Click">Add</Button>
-                <Button Name="btnRemoveArrangement" Grid.Row="3" Grid.Column="1" Margin="2.5 5 5 5" Click="btnRemoveArrangement_Click">Remove</Button>
+                <Grid Margin="0 10 0 0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="auto"/>
+                    </Grid.RowDefinitions>
+                    
+                    <TextBlock HorizontalAlignment="Center">Card Types</TextBlock>
+                    <Button Name="btnShowCardTypes" Margin="5 0 5 0" Background="Transparent" BorderBrush="Transparent" BorderThickness="0" HorizontalAlignment="Right" Foreground="#006D96" Click="btnShowCardTypes_Click">edit</Button>
+                    <ListBox Name="lstCardTypes" Grid.Row="1" Margin="5 0 5 0" SelectedValuePath="Value" MouseDoubleClick="lstCardTypes_MouseDoubleClick">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Text}" Foreground="{Binding Tag}" FontWeight="Bold"/>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                    <Button Name="btnAddCard" Grid.Row="2" Margin="5" Click="btnAddCard_Click">Add Card</Button>
+                </Grid>
+
+                <Grid Grid.Row="1" Margin="0 20 0 0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="auto"/>
+                        <RowDefinition Height="auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="30"/>
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.ColumnSpan="2" HorizontalAlignment="Center">Arrangements</TextBlock>
+                    <TextBox Name="txtArrangementName" Grid.ColumnSpan="2" Grid.Row="1" Margin="5 0 5 5" LostFocus="txtArrangementName_LostFocus"/>
+                    <ListBox Name="lstArrangements" Grid.ColumnSpan="2" Grid.Row="2" Margin="5 0 5 0" DisplayMemberPath="Text" SelectedValuePath="Value" SelectionChanged="lstArrangements_SelectionChanged"/>
+                    <Button Name="btnAddArrangement" Grid.Row="3" Margin="5 5 2.5 5" Click="btnAddArrangement_Click">Add</Button>
+                    <Button Name="btnRemoveArrangement" Grid.Row="3" Grid.Column="1" Margin="2.5 5 5 5" Click="btnRemoveArrangement_Click">Remove</Button>
+                </Grid>
             </Grid>
             <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
                 <Grid Name="pnlMain" ClipToBounds="True"/>

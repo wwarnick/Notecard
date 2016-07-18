@@ -90,7 +90,7 @@ namespace NotecardFront
 			}
 			else
 			{
-				List<string[]> name = CardManager.getCardNames(new string[] { SelectedValue }, Path, ref userMessage);
+				List<string[]> name = CardManager.getCardNames(new string[] { SelectedValue }, string.IsNullOrEmpty(CardTypes), Path, ref userMessage);
 				lblSelection.Text = name[0][1];
 			}
 		}

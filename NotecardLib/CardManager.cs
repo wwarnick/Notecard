@@ -1674,10 +1674,10 @@ namespace NotecardLib
 		/// <param name="path">The path of the current database.</param>
 		/// <param name="userMessage">Any user messages.</param>
 		/// <returns>The ids and names of the cards.</returns>
-		public static List<string[]> getCardNames(IEnumerable<string> ids, string path, ref string userMessage)
+		public static List<string[]> getCardNames(IEnumerable<string> ids, bool includeCardType, string path, ref string userMessage)
 		{
 			string sql = @"
-				SELECT `ft`.`card_id`, `ct`.`name` || ' - ' || `ft`.`value` AS `name`
+				SELECT `ft`.`card_id`, " + (includeCardType ? ("`ct`.`name` || ' - ' || ") : "") + @"`ft`.`value` AS `name`
 				FROM `field_text` `ft`
 					JOIN `card_type_field` `ctf` ON `ctf`.`id` = `ft`.`card_type_field_id`
 					JOIN `card_type` `ct` ON `ct`.`id` = `ctf`.`card_type_id` AND `ct`.`parent_id` IS NULL
@@ -1832,6 +1832,7 @@ namespace NotecardLib
 
 			return cards;
 		}
+
 		/// <summary>Retrieves the arrangement card list item settings.</summary>
 		/// <param name="arrangementID">The database ID of the owning arrangement.</param>
 		/// <param name="cardID">The database ID of the owning card.</param>

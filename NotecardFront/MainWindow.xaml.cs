@@ -30,10 +30,10 @@ namespace NotecardFront
 		private enum CardOpenType { New, Existing, Refresh }
 
 		/// <summary>The path to the current database.</summary>
-		string path;
+		private string path;
 
 		/// <summary>The path to the current database.</summary>
-		string Path
+		private string Path
 		{
 			get { return path; }
 			set
@@ -45,13 +45,27 @@ namespace NotecardFront
 		}
 
 		/// <summary>The card types, organized by database ID.</summary>
-		Dictionary<string, CardType> CardTypes;
+		private Dictionary<string, CardType> CardTypes;
 
 		/// <summary>Each card type's ancestry.</summary>
-		Dictionary<string, List<CardType>> Ancestries;
+		private Dictionary<string, List<CardType>> Ancestries;
 
 		/// <summary>Each card type's ancestry database IDs.</summary>
-		Dictionary<string, List<string>> AncestryIDs;
+		private Dictionary<string, List<string>> AncestryIDs;
+
+		/// <summary>The current file path.</summary>
+		private string currentFilePath;
+
+		/// <summary>The current file path.</summary>
+		private string CurrentFilePath
+		{
+			get { return currentFilePath; }
+			set
+			{
+				currentFilePath = value;
+				this.Title = (string.IsNullOrEmpty(currentFilePath) ? "" : (currentFilePath.Substring(currentFilePath.LastIndexOf(@"\") + 1) + " - ")) + "NoteCard";
+			}
+		}
 
 		#endregion Members
 
@@ -89,6 +103,7 @@ namespace NotecardFront
 
 			pnlMain.Children.Clear();
 
+			CurrentFilePath = null;
 			clearCurrentDir(ref userMessage);
 
 			Path = @"current\newcardfile.sqlite";
@@ -96,6 +111,7 @@ namespace NotecardFront
 
 			refreshArrangementList(ref userMessage);
 			refreshCards(ref userMessage);
+			lstArrangements.SelectedIndex = 0;
 		}
 
 		/// <summary>Clears the current working directory.</summary>
@@ -177,7 +193,7 @@ namespace NotecardFront
 
 			// get card types
 			CardTypes.Clear();
-			Item<string>[] items = new Item<string>[results.Count];
+			Item<string, SolidColorBrush>[] items = new Item<string, SolidColorBrush>[results.Count];
 			for (int i = 0; i < items.Length; i++)
 			{
 				CardType ct = CardManager.getCardType(results[i][0], path, ref userMessage);
@@ -185,12 +201,12 @@ namespace NotecardFront
 
 				tempCardTypes[i] = ct;
 
-				items[i] = new Item<string>(ct.Name, ct.ID);
+				items[i] = new Item<string, SolidColorBrush>(ct.Name, ct.ID, new SolidColorBrush(Color.FromRgb(ct.ColorRed, ct.ColorGreen, ct.ColorBlue)));
 			}
 
-			cmbAddCardType.ItemsSource = items;
-			if (cmbAddCardType.Items.Count > 0)
-				cmbAddCardType.SelectedIndex = 0;
+			lstCardTypes.ItemsSource = items;
+			if (lstCardTypes.Items.Count > 0)
+				lstCardTypes.SelectedIndex = 0;
 
 			// fill Ancestries
 			Ancestries.Clear();
@@ -435,6 +451,57 @@ namespace NotecardFront
 			}
 		}
 
+		/// <summary>Saves the current file.</summary>
+		/// <param name="saveAs">If a new path should be selected.</param>
+		/// <param name="userMessage">Any user messages.</param>
+		private void save(bool saveAs, ref string userMessage)
+		{
+			bool cancel = false;
+
+			// get new path
+			if (saveAs || CurrentFilePath == null)
+			{
+				SaveFileDialog saveDialog = new SaveFileDialog();
+				saveDialog.Filter = "NoteCard Files | *.crd";
+
+				if (saveDialog.ShowDialog() == true)
+					CurrentFilePath = saveDialog.FileName;
+				else
+					cancel = true;
+			}
+
+			// save
+			if (!cancel)
+			{
+				CardManager.vacuum(Path, ref userMessage);
+				cleanOrphanedFiles(ref userMessage);
+
+				try
+				{
+					// delete the file path if it already exists
+					if (File.Exists(CurrentFilePath))
+						File.Delete(CurrentFilePath);
+
+					ZipFile.CreateFromDirectory("current", CurrentFilePath);
+				}
+				catch (Exception ex)
+				{
+					userMessage += ex.Message;
+				}
+			}
+		}
+
+		/// <summary>Add a new card to the arrangement.</summary>
+		private void addCard(ref string userMessage)
+		{
+			if (!string.IsNullOrEmpty((string)lstArrangements.SelectedValue))
+			{
+				string cardID = CardManager.newCard(Ancestries[(string)lstCardTypes.SelectedValue], path, ref userMessage);
+
+				string arrangementCardID = openCard(cardID, null, CardOpenType.New, ref userMessage);
+			}
+		}
+
 		#region Events
 
 		/// <summary>Opens a card.</summary>
@@ -500,14 +567,18 @@ namespace NotecardFront
 		{
 			string userMessage = string.Empty;
 
-			if (!string.IsNullOrEmpty((string)lstArrangements.SelectedValue))
-			{
-				string cardID = CardManager.newCard(Ancestries[(string)cmbAddCardType.SelectedValue], path, ref userMessage);
+			addCard(ref userMessage);
 
-				string arrangementCardID = openCard(cardID, null, CardOpenType.New, ref userMessage);
+			if (!string.IsNullOrEmpty(userMessage))
+				MessageBox.Show(userMessage);
+		}
 
-				//CardManager.setAllFieldListMinimized(arrangementCardID, false, path, ref userMessage);
-			}
+		/// <summary>Add a new card to the arrangement.</summary>
+		private void lstCardTypes_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+		{
+			string userMessage = string.Empty;
+
+			addCard(ref userMessage);
 
 			if (!string.IsNullOrEmpty(userMessage))
 				MessageBox.Show(userMessage);
@@ -544,30 +615,24 @@ namespace NotecardFront
 			if (!string.IsNullOrEmpty(userMessage))
 				MessageBox.Show(userMessage);
 		}
+		
+		/// <summary>Save the file to the current path.</summary>
+		private void btnSave_Click(object sender, RoutedEventArgs e)
+		{
+			string userMessage = string.Empty;
+
+			save(false, ref userMessage);
+
+			if (!string.IsNullOrEmpty(userMessage))
+				MessageBox.Show(userMessage);
+		}
 
 		/// <summary>Show the user the save dialog, and save the file to the selected path.</summary>
 		private void btnSaveAs_Click(object sender, RoutedEventArgs e)
 		{
 			string userMessage = string.Empty;
 
-			SaveFileDialog saveDialog = new SaveFileDialog();
-			saveDialog.Filter = "NoteCard Files | *.crd";
-
-
-			if (saveDialog.ShowDialog() == true)
-			{
-				CardManager.vacuum(Path, ref userMessage);
-				cleanOrphanedFiles(ref userMessage);
-
-				try
-				{
-					ZipFile.CreateFromDirectory("current", saveDialog.FileName);
-				}
-				catch (Exception ex)
-				{
-					userMessage += ex.Message;
-				}
-			}
+			save(true, ref userMessage);
 
 			if (!string.IsNullOrEmpty(userMessage))
 				MessageBox.Show(userMessage);
@@ -594,6 +659,8 @@ namespace NotecardFront
 
 			if (openDialog.ShowDialog() == true)
 			{
+				CurrentFilePath = openDialog.FileName;
+
 				clearCurrentDir(ref userMessage);
 				CardTypes.Clear();
 				Ancestries.Clear();
@@ -602,7 +669,7 @@ namespace NotecardFront
 
 				try
 				{
-					ZipFile.ExtractToDirectory(openDialog.FileName, "current");
+					ZipFile.ExtractToDirectory(CurrentFilePath, "current");
 				}
 				catch (Exception ex)
 				{
@@ -611,6 +678,8 @@ namespace NotecardFront
 
 				refreshArrangementList(ref userMessage);
 				refreshCards(ref userMessage);
+				if (lstArrangements.Items.Count > 0)
+					lstArrangements.SelectedIndex = 0;
 			}
 
 			if (!string.IsNullOrEmpty(userMessage))

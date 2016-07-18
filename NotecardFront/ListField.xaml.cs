@@ -142,7 +142,7 @@ namespace NotecardFront
 				ForeColor = Brushes.White,
 				Tag = "menu",
 				IncludeSwitch = includeSwitch,
-				IncludeMinimize = true
+				IncludeMinimize = ListType.Fields.Count > 1
 			};
 
 			menu.Switch += Menu_Switch;

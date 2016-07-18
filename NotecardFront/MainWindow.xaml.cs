@@ -78,6 +78,8 @@ namespace NotecardFront
 
 			string userMessage = string.Empty;
 
+			((System.Collections.Specialized.INotifyCollectionChanged)lstCardTypes.Items).CollectionChanged += ItemsSource_Changed;
+
 			CardTypes = new Dictionary<string, CardType>();
 			Ancestries = new Dictionary<string, List<CardType>>();
 			AncestryIDs = new Dictionary<string, List<string>>();
@@ -494,10 +496,9 @@ namespace NotecardFront
 		/// <summary>Add a new card to the arrangement.</summary>
 		private void addCard(ref string userMessage)
 		{
-			if (!string.IsNullOrEmpty((string)lstArrangements.SelectedValue))
+			if (!string.IsNullOrEmpty((string)lstArrangements.SelectedValue) && !string.IsNullOrEmpty((string)lstCardTypes.SelectedValue))
 			{
 				string cardID = CardManager.newCard(Ancestries[(string)lstCardTypes.SelectedValue], path, ref userMessage);
-
 				string arrangementCardID = openCard(cardID, null, CardOpenType.New, ref userMessage);
 			}
 		}
@@ -521,7 +522,6 @@ namespace NotecardFront
 			string userMessage = string.Empty;
 
 			CardControl card = (CardControl)sender;
-			//CardManager.setCardPosAndSize((string)lstArrangements.SelectedValue, (string)card.Tag, (int)Math.Round(Canvas.GetLeft(card)), (int)Math.Round(Canvas.GetTop(card)), (int)Math.Round(card.ActualWidth), Path, ref userMessage);
 			CardManager.setCardPosAndSize((string)lstArrangements.SelectedValue, (string)card.Tag, (int)Math.Round(card.Margin.Left), (int)Math.Round(card.Margin.Top), (int)Math.Round(card.ActualWidth), Path, ref userMessage);
 
 			if (!string.IsNullOrEmpty(userMessage))
@@ -764,6 +764,12 @@ namespace NotecardFront
 
 			if (!string.IsNullOrEmpty(userMessage))
 				MessageBox.Show(userMessage);
+		}
+
+		/// <summary>Sets the visibility of lblNoCardTypes.</summary>
+		private void ItemsSource_Changed(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+		{
+			lblNoCardTypes.Visibility = lstCardTypes.Items.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
 		}
 
 		#endregion Events

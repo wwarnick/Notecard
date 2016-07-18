@@ -82,6 +82,8 @@ namespace NotecardFront
 		{
 			lstCardType.SelectedValue = null;
 			refreshCardTypeLists(ref userMessage);
+			if (lstCardType.Items.Count > 0)
+				lstCardType.SelectedIndex = 0;
 		}
 
 		private void refreshCardTypeLists(ref string userMessage)

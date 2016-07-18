@@ -590,10 +590,10 @@ namespace NotecardFront
 			}
 
 			Point cursor = e.MouseDevice.GetPosition((UIElement)this.Parent);
-			cursor.X = Math.Max(cursor.X, 0d);
-			cursor.Y = Math.Max(cursor.Y, 0d);
+			cursor.X = cursor.X;
+			cursor.Y = cursor.Y;
 
-			this.Margin = new Thickness(cursor.X - dragOffset.X, cursor.Y - dragOffset.Y, 0d, 0d);
+			this.Margin = new Thickness(Math.Max(cursor.X - dragOffset.X, 0d), Math.Max(cursor.Y - dragOffset.Y, 0d), 0d, 0d);
 		}
 
 		/// <summary>Prepare to resize the card to the left.</summary>
@@ -619,9 +619,9 @@ namespace NotecardFront
 			}
 
 			Point cursor = e.MouseDevice.GetPosition(rResizeL);
-			cursor.X = Math.Max(cursor.X, 0d);
+			cursor.X = cursor.X;
 
-			double diff = cursor.X - dragOffset.X;
+			double diff = Math.Max(cursor.X - dragOffset.X, -this.Margin.Left);
 
 			this.Width = this.ActualWidth - diff;
 			this.Margin = new Thickness(this.Margin.Left + diff, this.Margin.Top, 0d, 0d);

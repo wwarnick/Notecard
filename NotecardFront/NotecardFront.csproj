@@ -90,9 +90,6 @@
       <DependentUpon>SearchBox.xaml</DependentUpon>
     </Compile>
     <Compile Include="SearchBoxEventArgs.cs" />
-    <Compile Include="SearchSelect.xaml.cs">
-      <DependentUpon>SearchSelect.xaml</DependentUpon>
-    </Compile>
     <Compile Include="Tools.cs" />
     <Page Include="CardControl.xaml">
       <SubType>Designer</SubType>
@@ -146,10 +143,6 @@
       <SubType>Code</SubType>
     </Compile>
     <Page Include="SearchBox.xaml">
-      <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-    <Page Include="SearchSelect.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

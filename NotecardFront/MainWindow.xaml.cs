@@ -116,15 +116,33 @@ namespace NotecardFront
 			lstArrangements.SelectedIndex = 0;
 		}
 
+		/// <summary>Create the current directory.</summary>
+		/// <param name="userMessage">Any user messages.</param>
+		private void createCurrentDir(ref string userMessage)
+		{
+			try
+			{
+				var sec = new System.Security.AccessControl.DirectorySecurity();//Directory.GetAccessControl(path);
+				var everyone = new System.Security.Principal.SecurityIdentifier(System.Security.Principal.WellKnownSidType.WorldSid, null);
+				sec.AddAccessRule(new System.Security.AccessControl.FileSystemAccessRule(everyone, System.Security.AccessControl.FileSystemRights.Modify | System.Security.AccessControl.FileSystemRights.Synchronize, System.Security.AccessControl.InheritanceFlags.ContainerInherit | System.Security.AccessControl.InheritanceFlags.ObjectInherit, System.Security.AccessControl.PropagationFlags.None, System.Security.AccessControl.AccessControlType.Allow));
+
+				Directory.CreateDirectory("current", sec);
+			}
+			catch (Exception ex)
+			{
+				userMessage += ex.Message;
+			}
+		}
+
 		/// <summary>Clears the current working directory.</summary>
 		/// <param name="userMessage">Any user messages.</param>
 		private void clearCurrentDir(ref string userMessage)
 		{
+			// make sure it exists
+			createCurrentDir(ref userMessage);
+
 			try
 			{
-				// make sure it exists
-				Directory.CreateDirectory("current");
-
 				// delete all files in it if it already exists
 				DirectoryInfo di = new DirectoryInfo("current");
 
@@ -150,11 +168,11 @@ namespace NotecardFront
 		{
 			List<string> imageIDs = CardManager.getImageIDs(this.Path, ref userMessage);
 
+			// make sure it exists
+			createCurrentDir(ref userMessage);
+
 			try
 			{
-				// make sure it exists
-				Directory.CreateDirectory("current");
-
 				// delete all orphaned files in it if it already exists
 				DirectoryInfo di = new DirectoryInfo("current");
 

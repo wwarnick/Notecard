@@ -77,6 +77,15 @@ namespace NotecardFront
 			}
 		}
 
+		/// <summary>The color of the owning card type.</summary>
+		public byte ColorRed { get; set; }
+
+		/// <summary>The color of the owning card type.</summary>
+		public byte ColorGreen { get; set; }
+
+		/// <summary>The color of the owning card type.</summary>
+		public byte ColorBlue { get; set; }
+
 		/// <summary>Fired when a card field link is clicked.</summary>
 		public event EventHandler<string> OpenCard;
 
@@ -102,7 +111,7 @@ namespace NotecardFront
 		public void refresh(ArrangementCard arrangementSettings, ref int listFieldIndex, ref string userMessage)
 		{
 			// set btnAddItem color
-			btnAddItem.Background = Tools.colorToSum(ListType.ColorRed, ListType.ColorGreen, ListType.ColorBlue, 450);
+			btnAddItem.Background = Tools.colorToSum(ColorRed, ColorGreen, ColorBlue, 450);
 
 			// remove all but the label
 			stkMain.Children.RemoveRange(1, stkMain.Children.Count - 1);
@@ -138,7 +147,7 @@ namespace NotecardFront
 		{
 			ListItemMenu menu = new ListItemMenu()
 			{
-				Background = Tools.colorToSum(ListType.ColorRed, ListType.ColorGreen, ListType.ColorBlue, 450),
+				Background = Tools.colorToSum(ColorRed, ColorGreen, ColorBlue, 450),
 				ForeColor = Brushes.White,
 				Tag = "menu",
 				IncludeSwitch = includeSwitch,
@@ -326,8 +335,8 @@ namespace NotecardFront
 		/// <summary>Sets the background colors of list items.</summary>
 		private void refreshListItemBackColors()
 		{
-			Brush brush1 = Tools.colorToSum(ListType.ColorRed, ListType.ColorGreen, ListType.ColorBlue, 600);
-			Brush brush2 = Tools.colorToSum(ListType.ColorRed, ListType.ColorGreen, ListType.ColorBlue, 725);
+			Brush brush1 = Tools.colorToSum(ColorRed, ColorGreen, ColorBlue, 600);
+			Brush brush2 = Tools.colorToSum(ColorRed, ColorGreen, ColorBlue, 725);
 
 			int listItemIndex = 0;
 			for (int i = 0; i < stkMain.Children.Count; i++)

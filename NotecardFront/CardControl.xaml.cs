@@ -377,7 +377,10 @@ namespace NotecardFront
 									FieldIndex = fieldIndex,
 									Value = (List<Card>)CardData.Fields[fieldIndex],
 									ListType = f.ListType,
-									LabelText = f.Name
+									LabelText = f.Name,
+									ColorRed = CardData.CType.ColorRed,
+									ColorGreen = CardData.CType.ColorGreen,
+									ColorBlue = CardData.CType.ColorBlue
 								};
 
 								list.refresh(arrangementSettings, ref listItemIndex, ref userMessage);

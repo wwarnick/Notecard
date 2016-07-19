@@ -104,6 +104,7 @@ namespace NotecardFront
 			if (e.AddedItems.Count > 0)
 			{
 				string id = ((Item<string>)e.AddedItems[0]).Value;
+				txtSearch.Text = string.Empty;
 				SelectionMade?.Invoke(this, new SearchBoxEventArgs(id));
 			}
 		}

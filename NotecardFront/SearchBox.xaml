@@ -6,7 +6,7 @@
              xmlns:local="clr-namespace:NotecardFront"
              mc:Ignorable="d" 
              d:DesignHeight="300" d:DesignWidth="300">
-    <Grid>
+    <Grid Name="grdMain">
         <TextBox Name="txtSearch" TextChanged="txtSearch_TextChanged"/>
         <Popup Name="popSearchResults" IsOpen="False" StaysOpen="False" Placement="Bottom" PlacementTarget="{Binding ElementName=txtSearch}" Width="{Binding ActualWidth, ElementName=txtSearch}">
             <ListBox Name="lstSearchResults" DisplayMemberPath="Text" SelectedValuePath="Value" SelectionChanged="lstSearchResults_SelectionChanged"/>

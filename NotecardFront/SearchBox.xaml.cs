@@ -36,6 +36,54 @@ namespace NotecardFront
 			set { txtSearch.Cursor = value; }
 		}
 
+		/// <summary>Whether or not to show the text overlay.</summary>
+		public bool ShowOverlay
+		{
+			get { return lblOverlay != null; }
+			set
+			{
+				if (value && lblOverlay == null)
+				{
+					// TODO: THIS!
+					lblOverlay = new TextBlock()
+					{
+						IsHitTestVisible = false,
+						Margin = new Thickness(5d, 0d, 0d, 0d),
+						VerticalAlignment = VerticalAlignment.Center,
+						HorizontalAlignment = HorizontalAlignment.Left,
+						Foreground = Brushes.Gray,
+						Text = "Search..."
+					};
+					grdMain.Children.Add(lblOverlay);
+
+					lblOverlay.Visibility = string.IsNullOrEmpty(txtSearch.Text) ? Visibility.Visible : Visibility.Collapsed;
+
+					txtSearch.GotFocus += txtSearch_GotFocus;
+					txtSearch.LostFocus += txtSearch_LostFocus;
+				}
+				else if (!value && lblOverlay != null)
+				{
+					grdMain.Children.Remove(lblOverlay);
+					lblOverlay = null;
+					txtSearch.GotFocus -= txtSearch_GotFocus;
+					txtSearch.LostFocus -= txtSearch_LostFocus;
+				}
+			}
+		}
+
+		private void txtSearch_LostFocus(object sender, RoutedEventArgs e)
+		{
+			lblOverlay.Visibility = string.IsNullOrEmpty(txtSearch.Text) ? Visibility.Visible : Visibility.Collapsed;
+		}
+
+		private void txtSearch_GotFocus(object sender, RoutedEventArgs e)
+		{
+			lblOverlay.Visibility = Visibility.Collapsed;
+		}
+
+		/// <summary>The text block to display over the search box.</summary>
+		public TextBlock lblOverlay { get; private set; }
+
 		/// <summary>Fired when the user selects a card.</summary>
 		public event SearchBoxEventHandler SelectionMade;
 

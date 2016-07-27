@@ -63,7 +63,12 @@ namespace NotecardFront
 			set
 			{
 				currentFilePath = value;
-				this.Title = (string.IsNullOrEmpty(currentFilePath) ? "" : (currentFilePath.Substring(currentFilePath.LastIndexOf(@"\") + 1) + " - ")) + "NoteCard";
+
+				string userMessage = string.Empty;
+				refreshTitleBarText(ref userMessage);
+
+				if (!string.IsNullOrEmpty(userMessage))
+					MessageBox.Show(userMessage);
 			}
 		}
 
@@ -94,6 +99,13 @@ namespace NotecardFront
 		#endregion Constructors
 
 		#region Methods
+
+		/// <summary>Refreshes the title bar text with the file name, the software title, and the version number.</summary>
+		/// <param name="userMessage">Any user messages.</param>
+		private void refreshTitleBarText(ref string userMessage)
+		{
+			this.Title = (string.IsNullOrEmpty(CurrentFilePath) ? "" : (CurrentFilePath.Substring(CurrentFilePath.LastIndexOf(@"\") + 1) + " - ")) + "NoteCard v" + CardManager.getNoteCardVersion(ref userMessage);
+		}
 
 		/// <summary>Starts a new file.</summary>
 		/// <param name="userMessage">Any user messages.</param>

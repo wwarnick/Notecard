@@ -694,6 +694,7 @@ namespace NotecardFront
 					userMessage += ex.Message;
 				}
 
+				CardManager.updateDbVersion(Path, ref userMessage);
 				refreshArrangementList(ref userMessage);
 				refreshCards(ref userMessage);
 				if (lstArrangements.Items.Count > 0)

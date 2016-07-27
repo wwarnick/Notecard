@@ -73,6 +73,86 @@ namespace NotecardLib
 
 		#region Methods
 
+		/// <summary>Gets the current version of NoteCard.</summary>
+		/// <param name="userMessage">Any user messages.</param>
+		/// <returns>The current version of NoteCard.</returns>
+		public static string getNoteCardVersion(ref string userMessage)
+		{
+			string sql = "SELECT `version` FROM `versions` ORDER BY `version` DESC LIMIT 1;";
+			return execReadField(sql, "settings.sqlite", ref userMessage, (IEnumerable<SQLiteParameter>)null, "version");
+		}
+
+		/// <summary>Gets the version of the current file.</summary>
+		/// <param name="path"></param>
+		/// <param name="userMessage"></param>
+		/// <returns>The version of the current file.</returns>
+		public static string getFileVersion(string path, ref string userMessage)
+		{
+			string sql = "SELECT `version` FROM `global_settings` LIMIT 1;";
+			return execReadField(sql, path, ref userMessage, (IEnumerable<SQLiteParameter>)null, "version");
+		}
+
+		/// <summary>Gets the update scripts to update the current file.</summary>
+		/// <param name="path">The path of the current database.</param>
+		/// <param name="userMessage">Any user messages.</param>
+		/// <returns>The update scripts to update the current file.</returns>
+		public static string getUpdateScripts(string path, ref string userMessage)
+		{
+			// get current file version
+			string version = getFileVersion(path, ref userMessage);
+
+			// get update scripts
+			string sql = "SELECT `update_sql` FROM `versions` WHERE `version` > @version;";
+			List<string> scripts = execReadListField(sql, "settings.sqlite", ref userMessage, createParam("@version", DbType.String, version), "update_sql");
+
+			// compile scripts
+			StringBuilder finalScript = new StringBuilder();
+			foreach (string script in scripts)
+			{
+				finalScript.Append(script);
+			}
+
+			return finalScript.ToString();
+		}
+
+		/// <summary>Update the version of the database.</summary>
+		/// <param name="path">The path of the current database.</param>
+		/// <param name="userMessage">Any user messages.</param>
+		public static void updateDbVersion(string path, ref string userMessage)
+		{
+			// check to see if the file has a version number
+			string sql = "SELECT `name` FROM `sqlite_master` WHERE `type` = 'table' AND `name` = 'global_settings';";
+
+			List<string> result = execReadListField(sql, path, ref userMessage, (IEnumerable<SQLiteParameter>)null, "name");
+
+			// if the file doesn't have a version number yet, add it
+			if (result.Count == 0)
+			{
+				sql = @"
+					CREATE TABLE `global_settings` (
+						`id` INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+						`version` TEXT NOT NULL
+					);
+
+					INSERT INTO `global_settings` (`version`) VALUES ('0.1.0.0');";
+
+				execNonQuery(sql, path, ref userMessage);
+			}
+
+			// get file update scripts
+			sql = getUpdateScripts(path, ref userMessage);
+
+			// if out of date, run scripts
+			if (!string.IsNullOrEmpty(sql))
+			{
+				execNonQuery(sql, path, ref userMessage, (IEnumerable<SQLiteParameter>)null);
+
+				// update version number in file
+				sql = "UPDATE `global_settings` SET `version` = @version;";
+				execNonQuery(sql, path, ref userMessage, createParam("@version", DbType.String, getNoteCardVersion(ref userMessage)));
+			}
+		}
+
 		/// <summary>Initializes a new card database.</summary>
 		/// <param name="path">The path to save the database to.</param>
 		/// <param name="userMessage">Any user messages.</param>
@@ -89,6 +169,13 @@ namespace NotecardLib
 			}
 
 			string sql = @"
+				CREATE TABLE `global_settings` (
+					`id` INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+					`version` TEXT NOT NULL
+				);
+
+				INSERT INTO `global_settings` (`version`) VALUES (@version);
+
 				CREATE TABLE `card_type` (
 					`id` INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
 					`name` TEXT NULL DEFAULT NULL,
@@ -334,7 +421,7 @@ namespace NotecardLib
 				CREATE INDEX `idx_afl_card_type_field_id`
 					ON `arrangement_field_list` (`card_type_field_id`);";
 
-			execNonQuery(sql, path, ref userMessage, null);
+			execNonQuery(sql, path, ref userMessage, createParam("@version", DbType.String, getNoteCardVersion(ref userMessage)));
 		}
 
 		#region Card Types

@@ -44,7 +44,6 @@ namespace NotecardFront
 			{
 				if (value && lblOverlay == null)
 				{
-					// TODO: THIS!
 					lblOverlay = new TextBlock()
 					{
 						IsHitTestVisible = false,

@@ -150,6 +150,7 @@ namespace NotecardFront
 			InitializeComponent();
 
 			highlight = HighlightStatuses.None;
+			this.MinWidth = DefaultWidth;
 		}
 
 		#endregion Constructors
@@ -622,10 +623,11 @@ namespace NotecardFront
 			}
 
 			Point cursor = e.MouseDevice.GetPosition(rResizeL);
-			cursor.X = cursor.X;
-
 			double diff = Math.Max(cursor.X - dragOffset.X, -this.Margin.Left);
 
+			if (this.ActualWidth - diff < this.MinWidth)
+				diff = this.ActualWidth - this.MinWidth;
+			
 			this.Width = this.ActualWidth - diff;
 			this.Margin = new Thickness(this.Margin.Left + diff, this.Margin.Top, 0d, 0d);
 		}
@@ -653,7 +655,9 @@ namespace NotecardFront
 			}
 
 			Point cursor = e.MouseDevice.GetPosition(rResizeR);
-			this.Width = this.ActualWidth + cursor.X - dragOffset.X;
+			double newWidth = this.ActualWidth + cursor.X - dragOffset.X;
+
+			this.Width = (newWidth < this.MinWidth) ? this.MinWidth : newWidth;
 		}
 
 		#endregion Move and Resize

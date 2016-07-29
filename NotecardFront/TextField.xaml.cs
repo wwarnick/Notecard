@@ -21,6 +21,8 @@ namespace NotecardFront
 	/// </summary>
 	public partial class TextField : UserControl
 	{
+		#region Members
+
 		/// <summary>The path of the current database.</summary>
 		public string Path { get; set; }
 
@@ -93,11 +95,18 @@ namespace NotecardFront
 		/// <summary>The field's label.</summary>
 		private TextBlock lblName { get; set; }
 
+		/// <summary>Whether or not this text field is a title field.</summary>
+		public bool IsTitle { get; private set; }
+
 		/// <summary>Called after the value is changed.</summary>
 		public event EventHandler ValueChanged;
 
 		/// <summary>Called after the height is changed.</summary>
 		public event EventHandler HeightChanged;
+
+		#endregion Members
+
+		#region Constructors
 
 		public TextField()
 		{
@@ -105,6 +114,10 @@ namespace NotecardFront
 
 			this.Tag = DataType.Text;
 		}
+
+		#endregion Constructors
+
+		#region Methods
 
 		/// <summary>Refreshes the interface.</summary>
 		public void refresh()
@@ -116,6 +129,7 @@ namespace NotecardFront
 		/// <param name="backColor">The color of the background.</param>
 		public void setAsTitle(Brush backColor)
 		{
+			IsTitle = true;
 			this.Background = backColor;
 
 			if (lblName != null)
@@ -193,5 +207,7 @@ namespace NotecardFront
 			if (!string.IsNullOrEmpty(userMessage))
 				MessageBox.Show(userMessage);
 		}
+
+		#endregion Methods
 	}
 }

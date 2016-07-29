@@ -1210,10 +1210,22 @@ namespace NotecardLib
 			List<SQLiteParameter> parameters = new List<SQLiteParameter>();
 			resetParamNames();
 
+			CardType cardType = cardTypes[cardTypes.Count - 1];
+
+			// get title
+			string title;
+			for (int i = 0; ; i++)
+			{
+				title = cardType.Name + " " + (i + 1).ToString();
+				if (!cardTitleExists(title, cardType.ID, cardTypes[0].ID, path, ref userMessage))
+					break;
+			}
+
+			// insert record
 			sql.Append(@"
 				INSERT INTO `card` (`card_type_id`) VALUES (@card_type_id);
 				SELECT LAST_INSERT_ROWID() AS `id`;");
-			parameters.Add(createParam("@card_type_id", DbType.Int64, cardTypes[cardTypes.Count - 1].ID));
+			parameters.Add(createParam("@card_type_id", DbType.Int64, cardType.ID));
 
 			string cardID = execReadField(sql.ToString(), path, ref userMessage, parameters, "id");
 
@@ -1222,7 +1234,9 @@ namespace NotecardLib
 			StringBuilder fieldCard = new StringBuilder();
 			StringBuilder fieldCheckBox = new StringBuilder();
 			parameters.Clear();
+			parameters.Add(createParam("@title", DbType.String, title));
 
+			bool titleField = true;
 			foreach (CardType ct in cardTypes)
 			{
 				foreach (CardTypeField f in ct.Fields)
@@ -1231,8 +1245,9 @@ namespace NotecardLib
 					{
 						case DataType.Text:
 							fieldText.Append((fieldText.Length > 0 ? ", " : "") + @"
-								(@card_id, " + getNextParamName("card_type_field_id") + ")");
+								(@card_id, " + getNextParamName("card_type_field_id") + ", " + (titleField ? "@title" : "''") + ")");
 							parameters.Add(createParam(CurParamName, DbType.Int64, f.ID));
+							titleField = false;
 							break;
 						case DataType.Card:
 							fieldCard.Append((fieldCard.Length > 0 ? ", " : "") + @"
@@ -1260,7 +1275,7 @@ namespace NotecardLib
 			if (fieldText.Length > 0)
 			{
 				sql.Append(@"
-					INSERT INTO `field_text` (`card_id`, `card_type_field_id`) VALUES" + fieldText.ToString() + ";");
+					INSERT INTO `field_text` (`card_id`, `card_type_field_id`, `value`) VALUES" + fieldText.ToString() + ";");
 			}
 
 			if (fieldCard.Length > 0)
@@ -1815,6 +1830,37 @@ namespace NotecardLib
 					AND `ft`.`card_id` = @id;";
 
 			return execReadField(sql, path, ref userMessage, createParam("@id", DbType.Int64, id), "title");
+		}
+
+		/// <summary>Returns whether or not a card of the specified card type with the specified title exists.</summary>
+		/// <param name="title">The title to search for.</param>
+		/// <param name="cardTypeID">The database ID of the card type to search.</param>
+		/// <param name="ancestorID">The database ID of the card type's highest ancestor.</param>
+		/// <param name="path">The path of the current database.</param>
+		/// <param name="userMessage">Any user messages.</param>
+		/// <returns>Whether or not a card of the specified card type with the specified title exists.</returns>
+		public static bool cardTitleExists(string title, string cardTypeID, string ancestorID, string path, ref string userMessage)
+		{
+			string sql = @"
+				SELECT `ft`.`id`
+				FROM `card` `c`
+					JOIN `field_text` `ft` ON `ft`.`card_id` = `c`.`id`
+					JOIN `card_type_field` `ctf` ON `ctf`.`id` = `ft`.`card_type_field_id`
+					LEFT JOIN `card_type_field` `ctf2` ON `ctf2`.`card_type_id` = @ancestor_id AND `ctf2`.`sort_order` < `ctf`.`sort_order`
+				WHERE `c`.`card_type_id` = @card_type_id
+					AND `ctf`.`card_type_id` = @ancestor_id
+					AND `ctf2`.`id` IS NULL
+					AND `ft`.`value` = @title
+				LIMIT 1;";
+
+			SQLiteParameter[] parameters = new SQLiteParameter[]
+			{
+				createParam("@card_type_id", DbType.Int64, cardTypeID),
+				createParam("@ancestor_id", DbType.Int64, ancestorID),
+				createParam("@title", DbType.String, title)
+			};;
+
+			return execReadListField(sql, path, ref userMessage, parameters, "id").Count != 0;
 		}
 
 		/// <summary>Deletes a card from the database.</summary>
@@ -2801,7 +2847,7 @@ namespace NotecardLib
 
 #endregion DB Functions
 
-#region General Tools
+		#region General Tools
 
 		/// <summary>Finds the next name</summary>
 		/// <param name="names"></param>

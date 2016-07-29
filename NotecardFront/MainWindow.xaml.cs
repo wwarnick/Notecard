@@ -53,6 +53,9 @@ namespace NotecardFront
 		/// <summary>Each card type's ancestry database IDs.</summary>
 		private Dictionary<string, List<string>> AncestryIDs;
 
+		/// <summary>The current version of NoteCard.</summary>
+		private readonly string NoteCardVersion;
+
 		/// <summary>The current file path.</summary>
 		private string currentFilePath;
 
@@ -65,12 +68,19 @@ namespace NotecardFront
 				currentFilePath = value;
 
 				string userMessage = string.Empty;
-				refreshTitleBarText(ref userMessage);
+				FileName = string.IsNullOrEmpty(currentFilePath) ? string.Empty : currentFilePath.Substring(currentFilePath.LastIndexOf(@"\") + 1);
+				this.Title = (string.IsNullOrEmpty(currentFilePath) ? string.Empty : (FileName + " - ")) + "NoteCard v" + NoteCardVersion;
 
 				if (!string.IsNullOrEmpty(userMessage))
 					MessageBox.Show(userMessage);
 			}
 		}
+
+		/// <summary>The name of the current file.</summary>
+		private string FileName { get; set; }
+
+		/// <summary>The 'last modified' date of the current file when it was first opened or last saved.</summary>
+		private DateTime CurrentFileOldLastModified { get; set; }
 
 		#endregion Members
 
@@ -89,6 +99,8 @@ namespace NotecardFront
 			Ancestries = new Dictionary<string, List<CardType>>();
 			AncestryIDs = new Dictionary<string, List<string>>();
 
+			NoteCardVersion = CardManager.getNoteCardVersion(ref userMessage);
+
 			// start with an empty file
 			newFile(ref userMessage);
 			
@@ -99,13 +111,6 @@ namespace NotecardFront
 		#endregion Constructors
 
 		#region Methods
-
-		/// <summary>Refreshes the title bar text with the file name, the software title, and the version number.</summary>
-		/// <param name="userMessage">Any user messages.</param>
-		private void refreshTitleBarText(ref string userMessage)
-		{
-			this.Title = (string.IsNullOrEmpty(CurrentFilePath) ? "" : (CurrentFilePath.Substring(CurrentFilePath.LastIndexOf(@"\") + 1) + " - ")) + "NoteCard v" + CardManager.getNoteCardVersion(ref userMessage);
-		}
 
 		/// <summary>Starts a new file.</summary>
 		/// <param name="userMessage">Any user messages.</param>
@@ -122,6 +127,8 @@ namespace NotecardFront
 
 			Path = @"current\newcardfile.sqlite";
 			CardManager.createNewFile(Path, ref userMessage);
+
+			refreshOldLastModifiedDate(ref userMessage);
 
 			refreshArrangementList(ref userMessage);
 			refreshCards(ref userMessage);
@@ -515,12 +522,44 @@ namespace NotecardFront
 						File.Delete(CurrentFilePath);
 
 					ZipFile.CreateFromDirectory("current", CurrentFilePath);
+					refreshOldLastModifiedDate(ref userMessage);
 				}
 				catch (Exception ex)
 				{
 					userMessage += ex.Message;
 				}
 			}
+		}
+
+		/// <summary>Refreshes CurrentFileOldLastModified.</summary>
+		/// <param name="userMessage">Any user messages.</param>
+		private void refreshOldLastModifiedDate(ref string userMessage)
+		{
+			try
+			{
+				CurrentFileOldLastModified = File.GetLastWriteTimeUtc(Path);
+			}
+			catch (Exception ex)
+			{
+				userMessage += ex.Message;
+			}
+		}
+
+		/// <summary>Determines whether or not there are unsaved changes.</summary>
+		/// <param name="userMessage">Any user messages.</param>
+		/// <returns>Whether or not there are unsaved changes.</returns>
+		private bool hasUnsavedChanges(ref string userMessage)
+		{
+			try
+			{
+				return File.GetLastWriteTimeUtc(Path) != CurrentFileOldLastModified;
+			}
+			catch (Exception ex)
+			{
+				userMessage += ex.Message;
+			}
+
+			return false;
 		}
 
 		/// <summary>Add a new card to the arrangement.</summary>
@@ -684,33 +723,39 @@ namespace NotecardFront
 		{
 			string userMessage = string.Empty;
 
-			OpenFileDialog openDialog = new OpenFileDialog();
-			openDialog.Filter = "NoteCard Files | *.crd";
-
-			if (openDialog.ShowDialog() == true)
+			if (!hasUnsavedChanges(ref userMessage) ||
+				showSaveConfirmation(ref userMessage) != MessageBoxResult.Cancel)
 			{
-				CurrentFilePath = openDialog.FileName;
+				OpenFileDialog openDialog = new OpenFileDialog();
+				openDialog.Filter = "NoteCard Files | *.crd";
 
-				clearCurrentDir(ref userMessage);
-				CardTypes.Clear();
-				Ancestries.Clear();
-				AncestryIDs.Clear();
-				pnlMain.Children.Clear();
-
-				try
+				if (openDialog.ShowDialog() == true)
 				{
-					ZipFile.ExtractToDirectory(CurrentFilePath, "current");
-				}
-				catch (Exception ex)
-				{
-					userMessage += ex.Message;
-				}
+					CurrentFilePath = openDialog.FileName;
 
-				CardManager.updateDbVersion(Path, ref userMessage);
-				refreshArrangementList(ref userMessage);
-				refreshCards(ref userMessage);
-				if (lstArrangements.Items.Count > 0)
-					lstArrangements.SelectedIndex = 0;
+					clearCurrentDir(ref userMessage);
+					CardTypes.Clear();
+					Ancestries.Clear();
+					AncestryIDs.Clear();
+					pnlMain.Children.Clear();
+
+					try
+					{
+						ZipFile.ExtractToDirectory(CurrentFilePath, "current");
+						File.SetLastWriteTimeUtc(path, File.GetLastWriteTimeUtc(CurrentFilePath));
+					}
+					catch (Exception ex)
+					{
+						userMessage += ex.Message;
+					}
+					refreshOldLastModifiedDate(ref userMessage);
+
+					CardManager.updateDbVersion(Path, ref userMessage);
+					refreshArrangementList(ref userMessage);
+					refreshCards(ref userMessage);
+					if (lstArrangements.Items.Count > 0)
+						lstArrangements.SelectedIndex = 0;
+				}
 			}
 
 			if (!string.IsNullOrEmpty(userMessage))
@@ -788,13 +833,38 @@ namespace NotecardFront
 		{
 			string userMessage = string.Empty;
 
-			if (lclCardTypeSettings.Visibility == Visibility.Visible)
-				lclCardTypeSettings.Visibility = Visibility.Collapsed;
+			if (hasUnsavedChanges(ref userMessage) &&
+				showSaveConfirmation(ref userMessage) == MessageBoxResult.Cancel)
+			{
+				// don't exit the application
+				e.Cancel = true;
+			}
 
-			clearCurrentDir(ref userMessage);
+			if (!e.Cancel)
+			{
+				// close card type settings if visible
+				if (lclCardTypeSettings.Visibility == Visibility.Visible)
+					lclCardTypeSettings.Visibility = Visibility.Collapsed;
+
+				// clear the current directory
+				clearCurrentDir(ref userMessage);
+			}
 
 			if (!string.IsNullOrEmpty(userMessage))
 				MessageBox.Show(userMessage);
+		}
+
+		/// <summary>Shows a save confirmation dialog with Yes, No, and Cancel buttons.</summary>
+		/// <param name="userMessage">Any user messages.</param>
+		/// <returns>The dialog result.</returns>
+		private MessageBoxResult showSaveConfirmation(ref string userMessage)
+		{
+			MessageBoxResult result = MessageBox.Show(this, "Do you want to save your changes" + (string.IsNullOrEmpty(CurrentFilePath) ? string.Empty : (" to " + FileName)) + "?", "NoteCard", MessageBoxButton.YesNoCancel);
+
+			if (result == MessageBoxResult.Yes)
+				save(string.IsNullOrEmpty(currentFilePath), ref userMessage);
+
+			return result;
 		}
 
 		/// <summary>Sets the visibility of lblNoCardTypes.</summary>

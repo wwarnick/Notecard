@@ -194,6 +194,13 @@ namespace NotecardFront
 								reAdd = new FrameworkElement[stkMain.Children.Count - startIndex];
 								reAdd[1] = ui;
 								reAdd[2] = nextListItem;
+
+								// preserve minimize button state
+								ListItemMenu prevMenu = (ListItemMenu)stkMain.Children[i - 2];
+								ListItemMenu menu = (ListItemMenu)ui;
+								bool min = menu.Minimized;
+								menu.Minimized = prevMenu.Minimized;
+								prevMenu.Minimized = min;
 							}
 							break;
 						default: // list item

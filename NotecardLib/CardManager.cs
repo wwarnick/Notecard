@@ -4,6 +4,7 @@ using System.Data;
 using System.Data.SQLite;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace NotecardLib
@@ -23,6 +24,9 @@ namespace NotecardLib
 		{
 			get { return paramCurName; }
 		}
+
+		/// <summary>Used for any asynchronous threads.</summary>
+		private static Thread thread;
 
 		#region Name Templates
 
@@ -2340,6 +2344,13 @@ namespace NotecardLib
 			return "Data Source=" + path + ";Version=3;Foreign Keys=true;";
 		}
 
+		/// <summary>Waits for the thread to finish (if one is running).</summary>
+		private static void waitForThread()
+		{
+			if (thread != null && thread.ThreadState != ThreadState.Stopped)
+				thread.Join();
+		}
+
 		/// <summary>Executes a nonquery SQL string.</summary>
 		/// <param name="sql">The SQL to execute.</param>
 		/// <param name="path">The path of the database to access.</param>
@@ -2357,6 +2368,24 @@ namespace NotecardLib
 		/// <param name="parameters">Any parameters used by the SQL string.</param>
 		public static void execNonQuery(string sql, string path, ref string userMessage, IEnumerable<SQLiteParameter> parameters)
 		{
+#if !DEBUG
+			// This runs asynchronously since the code that called it doesn't need anything in return.
+			// Any db calls while the thread is running will be blocked.
+
+			waitForThread();
+
+			thread = new Thread(new ParameterizedThreadStart(execNonQueryThread));
+
+			List<object> p = new List<object>()
+				{
+					sql,
+					path,
+					parameters
+				};
+
+			// start the thread
+			thread.Start(p);
+#else
 			try
 			{
 				using (SQLiteConnection con = new SQLiteConnection(genConnectionString(path)))
@@ -2380,6 +2409,42 @@ namespace NotecardLib
 			catch (Exception ex)
 			{
 				userMessage += ex.Message;
+			}
+#endif
+		}
+
+		/// <summary>The method to run for asynchronous execNonQuery calls.</summary>
+		/// <param name="pm">The parameters.</param>
+		private static void execNonQueryThread(object pm)//string sql, string path, ref string userMessage, IEnumerable<SQLiteParameter> parameters)
+		{
+			List<object> list = (List<object>)pm;
+			string sql = (string)list[0];
+			string path = (string)list[1];
+			IEnumerable<SQLiteParameter> parameters = (IEnumerable<SQLiteParameter>)list[2];
+
+			try
+			{
+				using (SQLiteConnection con = new SQLiteConnection(genConnectionString(path)))
+				{
+					con.Open();
+
+					using (SQLiteCommand cmd = new SQLiteCommand("BEGIN;\n" + sql + "\nCOMMIT;", con))
+					{
+						if (parameters != null)
+						{
+							foreach (SQLiteParameter p in parameters)
+							{
+								cmd.Parameters.Add(p);
+							}
+						}
+
+						cmd.ExecuteNonQuery();
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				// TODO: find a way to report these errors
 			}
 		}
 
@@ -2408,6 +2473,9 @@ namespace NotecardLib
 		{
 			string[] result = null;
 
+#if !DEBUG
+			waitForThread();
+#endif
 			try
 			{
 				using (SQLiteConnection con = new SQLiteConnection(genConnectionString(path)))
@@ -2476,6 +2544,9 @@ namespace NotecardLib
 		{
 			string result = null;
 
+#if !DEBUG
+			waitForThread();
+#endif
 			try
 			{
 				using (SQLiteConnection con = new SQLiteConnection(genConnectionString(path)))
@@ -2539,6 +2610,9 @@ namespace NotecardLib
 		{
 			List<string[]> result = null;
 
+#if !DEBUG
+			waitForThread();
+#endif
 			try
 			{
 				using (SQLiteConnection con = new SQLiteConnection(genConnectionString(path)))
@@ -2607,6 +2681,9 @@ namespace NotecardLib
 		{
 			List<string> result = null;
 
+#if !DEBUG
+			waitForThread();
+#endif
 			try
 			{
 				using (SQLiteConnection con = new SQLiteConnection(genConnectionString(path)))
@@ -2681,9 +2758,9 @@ namespace NotecardLib
 			return param;
 		}
 
-		#endregion DB Functions
+#endregion DB Functions
 
-		#region General Tools
+#region General Tools
 
 		/// <summary>Finds the next name</summary>
 		/// <param name="names"></param>
@@ -2737,8 +2814,8 @@ namespace NotecardLib
 			return paramCurName;
 		}
 
-		#endregion General Tools
+#endregion General Tools
 
-		#endregion Methods
+#endregion Methods
 	}
 }

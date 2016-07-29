@@ -1713,26 +1713,37 @@ namespace NotecardLib
 		/// <summary>Search for a specific string query.</summary>
 		/// <param name="query">The search query.</param>
 		/// <param name="cardTypes">A comma-delimited list of card type IDs to search.</param>
+		/// <param name="includeCardType">Whether or not to include the card type names in the results.</param>
 		/// <param name="path">The path of the current database.</param>
 		/// <param name="userMessage">Any user messages.</param>
-		/// <returns>The database IDs of the cards.</returns>
-		public static List<string> search(string query, string cardTypes, string path, ref string userMessage)
+		/// <returns>The search results.</returns>
+		public static SearchResult[] search(string query, string cardTypes, bool includeCardType, string path, ref string userMessage)
 		{
 			// TODO: sort by relevance (number of keyword matches)
 
-			string[] keywords = query.Split(' ');
+			SearchResult[] searchResults;
 
-			StringBuilder sql = new StringBuilder();
-			foreach (string keyword in keywords)
+			// process keywords
+			string[] keywords = query.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+			SQLiteParameter[] parameters = new SQLiteParameter[keywords.Length];
+
+			StringBuilder bSql = new StringBuilder();
+			for (int i = 0; i < keywords.Length; i++)
 			{
-				sql.Append((sql.Length > 0 ? " OR " : "") + "`ft`.`value` LIKE '%" + keyword + "%'");
+				bSql.Append((bSql.Length > 0 ? " AND " : "") + "`ft`.`value` LIKE @keyword" + i.ToString());
+				parameters[i] = createParam("@keyword" + i.ToString(), DbType.String, "%" + keywords[i].Replace("%", string.Empty) + "%");
 			}
 
-			if (sql.Length > 0)
+			if (bSql.Length == 0)
 			{
+				searchResults = new SearchResult[0];
+			}
+			else
+			{
+				// get ids
 				if (string.IsNullOrEmpty(cardTypes))
 				{
-					sql.Insert(0, @"
+					bSql.Insert(0, @"
 					SELECT DISTINCT COALESCE(`fl`.`card_id`, `c`.`id`) AS `id`
 					FROM `field_text` `ft`
 						JOIN `card` `c` ON `c`.`id` = `ft`.`card_id`
@@ -1741,7 +1752,7 @@ namespace NotecardLib
 				}
 				else
 				{
-					sql.Insert(0, @"
+					bSql.Insert(0, @"
 					SELECT DISTINCT COALESCE(`c2`.`id`, `c`.`id`) AS `id`
 					FROM `field_text` `ft`
 						JOIN `card` `c` ON `c`.`id` = `ft`.`card_id`
@@ -1752,23 +1763,13 @@ namespace NotecardLib
 						AND ");
 				}
 
-				sql.Append(";");
+				bSql.Append(";");
 
-				return execReadListField(sql.ToString(), path, ref userMessage, (SQLiteParameter)null, "id");
-			}
+				IEnumerable<string> ids = execReadListField(bSql.ToString(), path, ref userMessage, parameters, "id");
 
-			return null;
-		}
-
-		/// <summary>Gets the names of a list of cards.</summary>
-		/// <param name="ids">The database IDs of the cards.</param>
-		/// <param name="path">The path of the current database.</param>
-		/// <param name="userMessage">Any user messages.</param>
-		/// <returns>The ids and names of the cards.</returns>
-		public static List<string[]> getCardNames(IEnumerable<string> ids, bool includeCardType, string path, ref string userMessage)
-		{
-			string sql = @"
-				SELECT `ft`.`card_id`, " + (includeCardType ? ("`ct`.`name` || ' - ' || ") : "") + @"`ft`.`value` AS `name`
+				// get card information
+				string sql = @"
+				SELECT `ft`.`card_id`, " + (includeCardType ? ("`ct`.`name` || ' - ' || ") : "") + @"`ft`.`value` AS `name`, `ct`.`color`
 				FROM `field_text` `ft`
 					JOIN `card_type_field` `ctf` ON `ctf`.`id` = `ft`.`card_type_field_id`
 					JOIN `card_type` `ct` ON `ct`.`id` = `ctf`.`card_type_id` AND `ct`.`parent_id` IS NULL
@@ -1776,7 +1777,44 @@ namespace NotecardLib
 				WHERE `ctf2`.`id` IS NULL
 					AND `ft`.`card_id` IN (" + string.Join(",", ids) + ");";
 
-			return execReadListFields(sql, path, ref userMessage, (IEnumerable<SQLiteParameter>)null, "card_id", "name");
+				List<string[]> results = execReadListFields(sql, path, ref userMessage, (IEnumerable<SQLiteParameter>)null, "card_id", "name", "color");
+				searchResults = new SearchResult[results.Count];
+
+				for (int i = 0; i < searchResults.Length; i++)
+				{
+					byte red, green, blue;
+					getColorsFromInt(int.Parse(results[i][2]), out red, out green, out blue);
+
+					searchResults[i] = new SearchResult()
+					{
+						ID = results[i][0],
+						Title = results[i][1],
+						Color = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(red, green, blue))
+					};
+				}
+			}
+
+			return searchResults;
+		}
+
+		/// <summary>Gets the title of a card.</summary>
+		/// <param name="id">The database ID of the card.</param>
+		/// <param name="includeCardType">Whether or not to include the card type name in the result.</param>
+		/// <param name="path">The path of the current database.</param>
+		/// <param name="userMessage">Any user messages.</param>
+		/// <returns>The ids and names of the cards.</returns>
+		public static string getCardTitle(string id, bool includeCardType, string path, ref string userMessage)
+		{
+			string sql = @"
+				SELECT `ft`.`card_id`, " + (includeCardType ? ("`ct`.`name` || ' - ' || ") : "") + @"`ft`.`value` AS `title`
+				FROM `field_text` `ft`
+					JOIN `card_type_field` `ctf` ON `ctf`.`id` = `ft`.`card_type_field_id`
+					JOIN `card_type` `ct` ON `ct`.`id` = `ctf`.`card_type_id` AND `ct`.`parent_id` IS NULL
+					LEFT JOIN `card_type_field` `ctf2` ON `ctf2`.`card_type_id` = `ctf`.`card_type_id` AND `ctf2`.`sort_order` < `ctf`.`sort_order`
+				WHERE `ctf2`.`id` IS NULL
+					AND `ft`.`card_id` = @id;";
+
+			return execReadField(sql, path, ref userMessage, createParam("@id", DbType.Int64, id), "title");
 		}
 
 		/// <summary>Deletes a card from the database.</summary>
@@ -2728,6 +2766,9 @@ namespace NotecardLib
 		{
 			string sql = "VACUUM;";
 
+#if !DEBUG
+			waitForThread();
+#endif
 			try
 			{
 				using (SQLiteConnection con = new SQLiteConnection(genConnectionString(path)))
@@ -2814,8 +2855,20 @@ namespace NotecardLib
 			return paramCurName;
 		}
 
-#endregion General Tools
+		/// <summary>Converts a color int to the individual color values.</summary>
+		/// <param name="color">An integer representing a color.</param>
+		/// <param name="red">The red value.</param>
+		/// <param name="green">The green value.</param>
+		/// <param name="blue">The blue value.</param>
+		public static void getColorsFromInt(int color, out byte red, out byte green, out byte blue)
+		{
+			red = (byte)(color / 65536);
+			green = (byte)((color - (red * 65536)) / 256);
+			blue = (byte)(color - (red * 65536) - (green * 256));
+		}
 
-#endregion Methods
+		#endregion General Tools
+
+		#endregion Methods
 	}
 }

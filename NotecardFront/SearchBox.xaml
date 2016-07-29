@@ -9,7 +9,13 @@
     <Grid Name="grdMain">
         <TextBox Name="txtSearch" TextChanged="txtSearch_TextChanged"/>
         <Popup Name="popSearchResults" IsOpen="False" StaysOpen="False" Placement="Bottom" PlacementTarget="{Binding ElementName=txtSearch}" Width="{Binding ActualWidth, ElementName=txtSearch}">
-            <ListBox Name="lstSearchResults" DisplayMemberPath="Text" SelectedValuePath="Value" SelectionChanged="lstSearchResults_SelectionChanged"/>
+            <ListBox Name="lstSearchResults" SelectedValuePath="ID" SelectionChanged="lstSearchResults_SelectionChanged">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding Title}" Foreground="{Binding Color}" FontWeight="Bold"/>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
         </Popup>
     </Grid>
 </UserControl>

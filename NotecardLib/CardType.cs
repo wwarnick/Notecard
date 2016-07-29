@@ -40,9 +40,12 @@ namespace NotecardLib
 			set
 			{
 				color = value;
-				ColorRed = (byte)(color / 65536);
-				ColorGreen = (byte)((color - (ColorRed * 65536)) / 256);
-				ColorBlue = (byte)(color - (ColorRed * 65536) - (ColorGreen * 256));
+
+				byte red, green, blue;
+				CardManager.getColorsFromInt(color, out red, out green, out blue);
+				ColorRed = red;
+				ColorGreen = green;
+				ColorBlue = blue;
 			}
 		}
 

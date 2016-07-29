@@ -114,28 +114,19 @@ namespace NotecardFront
 		{
 			string userMessage = string.Empty;
 
-			List<string> ids = null;
+			SearchResult[] results = null;
 
 			if (!string.IsNullOrEmpty(txtSearch.Text))
-				ids = CardManager.search(txtSearch.Text, CardTypes, Path, ref userMessage);
+				results = CardManager.search(txtSearch.Text, CardTypes, string.IsNullOrEmpty(CardTypes), Path, ref userMessage);
 
-			if (ids == null || ids.Count == 0)
+			if (results == null || results.Length == 0)
 			{
 				lstSearchResults.ItemsSource = new Item<string>[0];
 				popSearchResults.IsOpen = false;
 			}
 			else
 			{
-				List<string[]> names = CardManager.getCardNames(ids, string.IsNullOrEmpty(CardTypes), Path, ref userMessage);
-
-				Item<string>[] items = new Item<string>[names.Count];
-
-				for (int i = 0; i < names.Count; i++)
-				{
-					items[i] = new Item<string>(names[i][1], names[i][0]);
-				}
-
-				lstSearchResults.ItemsSource = items;
+				lstSearchResults.ItemsSource = results;
 				popSearchResults.IsOpen = true;
 			}
 
@@ -150,7 +141,7 @@ namespace NotecardFront
 
 			if (e.AddedItems.Count > 0)
 			{
-				string id = ((Item<string>)e.AddedItems[0]).Value;
+				string id = ((SearchResult)e.AddedItems[0]).ID;
 				txtSearch.Text = string.Empty;
 				SelectionMade?.Invoke(this, new SearchBoxEventArgs(id));
 			}

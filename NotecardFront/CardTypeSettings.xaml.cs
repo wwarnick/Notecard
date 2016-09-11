@@ -23,7 +23,6 @@ namespace NotecardFront
 	{
 		#region Members
 
-		public string Path { get; set; }
 		private CardType CurCardType;
 
 		#endregion Members
@@ -91,7 +90,7 @@ namespace NotecardFront
 			string selType = (string)lstCardType.SelectedValue;
 			string selField = (string)lstCardTypeField.SelectedValue;
 
-			List<string[]> results = CardManager.getCardTypeIDsAndNames(Path, ref userMessage);
+			List<string[]> results = CardManager.getCardTypeIDsAndNames(ref userMessage);
 
 			Item<string>[] items = new Item<string>[results.Count];
 			Item<string>[] itemsWNull = new Item<string>[results.Count + 1];
@@ -148,7 +147,7 @@ namespace NotecardFront
 			{
 				string selField = (string)lstCardTypeField.SelectedValue;
 
-				List<string[]> results = CardManager.getCardTypeFieldIDsAndNames(cardTypeID, Path, ref userMessage);
+				List<string[]> results = CardManager.getCardTypeFieldIDsAndNames(cardTypeID, ref userMessage);
 
 				Item<string>[] items = new Item<string>[results.Count];
 
@@ -173,7 +172,7 @@ namespace NotecardFront
 		{
 			CurCardType = string.IsNullOrEmpty(selValue)
 				? null
-				: CardManager.getCardType(selValue, Path, ref userMessage);
+				: CardManager.getCardType(selValue, ref userMessage);
 		}
 
 		private void refreshListFieldList(ref string userMessage)
@@ -205,7 +204,7 @@ namespace NotecardFront
 			{
 				string selField = (string)lstListField.SelectedValue;
 
-				List<string[]> results = CardManager.getCardTypeFieldIDsAndNames(curTypeField.RefCardTypeID, Path, ref userMessage);
+				List<string[]> results = CardManager.getCardTypeFieldIDsAndNames(curTypeField.RefCardTypeID, ref userMessage);
 
 				Item<string>[] items = new Item<string>[results.Count];
 
@@ -235,7 +234,7 @@ namespace NotecardFront
 			}
 			else
 			{
-				List<string[]> results = CardManager.getAllButDescendents(cardTypeID, Path, ref userMessage);
+				List<string[]> results = CardManager.getAllButDescendents(cardTypeID, ref userMessage);
 				Item<string>[] items = new Item<string>[results.Count + 1];
 				items[0] = new Item<string>("[None]", string.Empty);
 				for (int i = 0; i < results.Count; i++)
@@ -270,7 +269,7 @@ namespace NotecardFront
 		{
 			string userMessage = string.Empty;
 
-			string id = CardManager.newCardType(CardTypeContext.Standalone, Path, ref userMessage);
+			string id = CardManager.newCardType(CardTypeContext.Standalone, ref userMessage);
 
 			refreshCardTypeLists(ref userMessage);
 
@@ -283,7 +282,7 @@ namespace NotecardFront
 
 			if (!string.IsNullOrEmpty((string)lstCardType.SelectedValue))
 			{
-				CardManager.saveCardType((string)lstCardType.SelectedValue, new CardTypeChg(CardTypeChange.CardTypeRemove), Path, ref userMessage);
+				CardManager.saveCardType((string)lstCardType.SelectedValue, new CardTypeChg(CardTypeChange.CardTypeRemove), ref userMessage);
 
 				refreshCardTypeLists(ref userMessage);
 			}
@@ -327,7 +326,7 @@ namespace NotecardFront
 
 			if (!string.IsNullOrEmpty((string)lstCardType.SelectedValue) && !string.IsNullOrEmpty(txtCardTypeName.Text) && txtCardTypeName.Text != CurCardType.Name)
 			{
-				CardManager.saveCardType((string)lstCardType.SelectedValue, new CardTypeChg(CardTypeChange.CardTypeNameChange, txtCardTypeName.Text), Path, ref userMessage);
+				CardManager.saveCardType((string)lstCardType.SelectedValue, new CardTypeChg(CardTypeChange.CardTypeNameChange, txtCardTypeName.Text), ref userMessage);
 
 				refreshCurCardType(ref userMessage);
 				refreshCardTypeLists(ref userMessage);
@@ -342,7 +341,7 @@ namespace NotecardFront
 
 			if (!string.IsNullOrEmpty((string)lstCardType.SelectedValue) && (string)cmbCardTypeParent.SelectedValue != CurCardType.ParentID)
 			{
-				CardManager.saveCardType((string)lstCardType.SelectedValue, new CardTypeChg(CardTypeChange.CardTypeParentChange, (string)cmbCardTypeParent.SelectedValue), Path, ref userMessage);
+				CardManager.saveCardType((string)lstCardType.SelectedValue, new CardTypeChg(CardTypeChange.CardTypeParentChange, (string)cmbCardTypeParent.SelectedValue), ref userMessage);
 
 				refreshCurCardType(ref userMessage);
 			}
@@ -357,7 +356,7 @@ namespace NotecardFront
 
 			if (!string.IsNullOrEmpty((string)lstCardType.SelectedValue) && (int)cmbCardTypeColor.SelectedValue != CurCardType.Color)
 			{
-				CardManager.saveCardType((string)lstCardType.SelectedValue, new CardTypeChg(CardTypeChange.CardTypeColorChange, (int)cmbCardTypeColor.SelectedValue), Path, ref userMessage);
+				CardManager.saveCardType((string)lstCardType.SelectedValue, new CardTypeChg(CardTypeChange.CardTypeColorChange, (int)cmbCardTypeColor.SelectedValue), ref userMessage);
 
 				refreshCurCardType(ref userMessage);
 			}
@@ -375,7 +374,7 @@ namespace NotecardFront
 
 			if (!string.IsNullOrEmpty((string)lstCardType.SelectedValue))
 			{
-				CardManager.saveCardType((string)lstCardType.SelectedValue, new CardTypeChg(CardTypeChange.CardTypeFieldAdd), Path, ref userMessage);
+				CardManager.saveCardType((string)lstCardType.SelectedValue, new CardTypeChg(CardTypeChange.CardTypeFieldAdd), ref userMessage);
 
 				refreshCurCardType(ref userMessage);
 				refreshCardTypeFieldList(ref userMessage);
@@ -388,9 +387,9 @@ namespace NotecardFront
 		{
 			string userMessage = string.Empty;
 
-			if (!string.IsNullOrEmpty((string)lstCardTypeField.SelectedValue))
+			if (!string.IsNullOrEmpty((string)lstCardTypeField.SelectedValue) && (!string.IsNullOrEmpty((string)cmbCardTypeParent.SelectedValue) || lstCardTypeField.SelectedIndex > 0))
 			{
-				CardManager.saveCardType((string)lstCardType.SelectedValue, new CardTypeChg(CardTypeChange.CardTypeFieldRemove, (string)lstCardTypeField.SelectedValue), Path, ref userMessage);
+				CardManager.saveCardType((string)lstCardType.SelectedValue, new CardTypeChg(CardTypeChange.CardTypeFieldRemove, (string)lstCardTypeField.SelectedValue), ref userMessage);
 
 				refreshCardTypeFieldList(ref userMessage);
 			}
@@ -404,7 +403,7 @@ namespace NotecardFront
 
 			if (!string.IsNullOrEmpty((string)lstCardTypeField.SelectedValue) && !string.IsNullOrEmpty(txtCardTypeFieldName.Text) && CurCardType.Fields[lstCardTypeField.SelectedIndex].Name != txtCardTypeFieldName.Text)
 			{
-				CardManager.saveCardType((string)lstCardType.SelectedValue, new CardTypeChg(CardTypeChange.CardTypeFieldNameChange, lstCardTypeField.SelectedValue, txtCardTypeFieldName.Text), Path, ref userMessage);
+				CardManager.saveCardType((string)lstCardType.SelectedValue, new CardTypeChg(CardTypeChange.CardTypeFieldNameChange, lstCardTypeField.SelectedValue, txtCardTypeFieldName.Text), ref userMessage);
 
 				refreshCurCardType(ref userMessage);
 				refreshCardTypeFieldList(ref userMessage);
@@ -454,7 +453,7 @@ namespace NotecardFront
 			if (!string.IsNullOrEmpty((string)lstCardTypeField.SelectedValue) && !string.IsNullOrEmpty((string)cmbCardTypeFieldType.SelectedValue) && (int)CurCardType.Fields[lstCardTypeField.SelectedIndex].FieldType != int.Parse((string)cmbCardTypeFieldType.SelectedValue))
 			{
 				DataType fieldType = (DataType)int.Parse((string)cmbCardTypeFieldType.SelectedValue);
-				CardManager.saveCardType((string)lstCardType.SelectedValue, new CardTypeChg(CardTypeChange.CardTypeFieldTypeChange, (string)lstCardTypeField.SelectedValue, fieldType), Path, ref userMessage);
+				CardManager.saveCardType((string)lstCardType.SelectedValue, new CardTypeChg(CardTypeChange.CardTypeFieldTypeChange, (string)lstCardTypeField.SelectedValue, fieldType), ref userMessage);
 
 				refreshCurCardType(ref userMessage);
 				refreshListFieldList(ref userMessage);
@@ -493,7 +492,7 @@ namespace NotecardFront
 				CardTypeField field = CurCardType.Fields[lstCardTypeField.SelectedIndex];
 				if (field.FieldType == DataType.Card && (!string.IsNullOrEmpty(field.RefCardTypeID) || !string.IsNullOrEmpty((string)cmbCardTypeFieldCardType.SelectedValue)) && field.RefCardTypeID != (string)cmbCardTypeFieldCardType.SelectedValue)
 				{
-					CardManager.saveCardType((string)lstCardType.SelectedValue, new CardTypeChg(CardTypeChange.CardTypeFieldCardTypeChange, (string)lstCardTypeField.SelectedValue, (string)cmbCardTypeFieldCardType.SelectedValue), Path, ref userMessage);
+					CardManager.saveCardType((string)lstCardType.SelectedValue, new CardTypeChg(CardTypeChange.CardTypeFieldCardTypeChange, (string)lstCardTypeField.SelectedValue, (string)cmbCardTypeFieldCardType.SelectedValue), ref userMessage);
 					refreshCurCardType(ref userMessage);
 				}
 			}
@@ -511,7 +510,7 @@ namespace NotecardFront
 
 				if (field.ShowLabel != chkCardTypeFieldShowLabel.IsChecked)
 				{
-					CardManager.saveCardType((string)lstCardType.SelectedValue, new CardTypeChg(CardTypeChange.CardTypeFieldShowLabelChange, (string)lstCardTypeField.SelectedValue, chkCardTypeFieldShowLabel.IsChecked), Path, ref userMessage);
+					CardManager.saveCardType((string)lstCardType.SelectedValue, new CardTypeChg(CardTypeChange.CardTypeFieldShowLabelChange, (string)lstCardTypeField.SelectedValue, chkCardTypeFieldShowLabel.IsChecked), ref userMessage);
 					refreshCurCardType(ref userMessage);
 				}
 			}
@@ -531,7 +530,7 @@ namespace NotecardFront
 				string id1 = CurCardType.Fields[selected].ID;
 				string id2 = CurCardType.Fields[selected + 1].ID;
 
-				CardManager.saveCardType(CurCardType.ID, new CardTypeChg(CardTypeChange.CardTypeFieldSwap, id1, id2), Path, ref userMessage);
+				CardManager.saveCardType(CurCardType.ID, new CardTypeChg(CardTypeChange.CardTypeFieldSwap, id1, id2), ref userMessage);
 
 				refreshCurCardType(ref userMessage);
 				refreshCardTypeFieldList(ref userMessage);
@@ -553,7 +552,7 @@ namespace NotecardFront
 				string id1 = CurCardType.Fields[selected - 1].ID;
 				string id2 = CurCardType.Fields[selected].ID;
 
-				CardManager.saveCardType(CurCardType.ID, new CardTypeChg(CardTypeChange.CardTypeFieldSwap, id1, id2), Path, ref userMessage);
+				CardManager.saveCardType(CurCardType.ID, new CardTypeChg(CardTypeChange.CardTypeFieldSwap, id1, id2), ref userMessage);
 
 				refreshCurCardType(ref userMessage);
 				refreshCardTypeFieldList(ref userMessage);
@@ -576,7 +575,7 @@ namespace NotecardFront
 			{
 				string listTypeID = CurCardType.Fields[lstCardTypeField.SelectedIndex].RefCardTypeID;
 
-				CardManager.saveCardType(listTypeID, new CardTypeChg(CardTypeChange.CardTypeFieldAdd), Path, ref userMessage);
+				CardManager.saveCardType(listTypeID, new CardTypeChg(CardTypeChange.CardTypeFieldAdd), ref userMessage);
 
 				refreshCurCardType(ref userMessage);
 				refreshListFieldList(ref userMessage);
@@ -591,7 +590,7 @@ namespace NotecardFront
 
 			if (!string.IsNullOrEmpty((string)lstListField.SelectedValue))
 			{
-				CardManager.saveCardType(CurCardType.Fields[lstCardTypeField.SelectedIndex].RefCardTypeID, new CardTypeChg(CardTypeChange.CardTypeFieldRemove, (string)lstListField.SelectedValue), Path, ref userMessage);
+				CardManager.saveCardType(CurCardType.Fields[lstCardTypeField.SelectedIndex].RefCardTypeID, new CardTypeChg(CardTypeChange.CardTypeFieldRemove, (string)lstListField.SelectedValue), ref userMessage);
 
 				refreshListFieldList(ref userMessage);
 			}
@@ -646,7 +645,7 @@ namespace NotecardFront
 
 			if (!string.IsNullOrEmpty((string)lstListField.SelectedValue) && !string.IsNullOrEmpty(txtListFieldName.Text) && CurCardType.Fields[lstCardTypeField.SelectedIndex].ListType.Fields[lstListField.SelectedIndex].Name != txtListFieldName.Text)
 			{
-				CardManager.saveCardType(CurCardType.Fields[lstCardTypeField.SelectedIndex].RefCardTypeID, new CardTypeChg(CardTypeChange.CardTypeFieldNameChange, lstListField.SelectedValue, txtListFieldName.Text), Path, ref userMessage);
+				CardManager.saveCardType(CurCardType.Fields[lstCardTypeField.SelectedIndex].RefCardTypeID, new CardTypeChg(CardTypeChange.CardTypeFieldNameChange, lstListField.SelectedValue, txtListFieldName.Text), ref userMessage);
 
 				refreshCurCardType(ref userMessage);
 				refreshListFieldList(ref userMessage);
@@ -662,7 +661,7 @@ namespace NotecardFront
 			if (!string.IsNullOrEmpty((string)lstListField.SelectedValue) && !string.IsNullOrEmpty((string)cmbListFieldType.SelectedValue) && (int)CurCardType.Fields[lstCardTypeField.SelectedIndex].ListType.Fields[lstListField.SelectedIndex].FieldType != int.Parse((string)cmbListFieldType.SelectedValue))
 			{
 				DataType fieldType = (DataType)int.Parse((string)cmbListFieldType.SelectedValue);
-				CardManager.saveCardType(CurCardType.Fields[lstCardTypeField.SelectedIndex].RefCardTypeID, new CardTypeChg(CardTypeChange.CardTypeFieldTypeChange, (string)lstListField.SelectedValue, fieldType), Path, ref userMessage);
+				CardManager.saveCardType(CurCardType.Fields[lstCardTypeField.SelectedIndex].RefCardTypeID, new CardTypeChg(CardTypeChange.CardTypeFieldTypeChange, (string)lstListField.SelectedValue, fieldType), ref userMessage);
 
 				refreshCurCardType(ref userMessage);
 
@@ -691,7 +690,7 @@ namespace NotecardFront
 				CardTypeField field = listType.Fields[lstListField.SelectedIndex];
 				if (field.FieldType == DataType.Card && (!string.IsNullOrEmpty(field.RefCardTypeID) || !string.IsNullOrEmpty((string)cmbListFieldCardType.SelectedValue)) && field.RefCardTypeID != (string)cmbListFieldCardType.SelectedValue)
 				{
-					CardManager.saveCardType(listType.ID, new CardTypeChg(CardTypeChange.CardTypeFieldCardTypeChange, (string)lstListField.SelectedValue, (string)cmbListFieldCardType.SelectedValue), Path, ref userMessage);
+					CardManager.saveCardType(listType.ID, new CardTypeChg(CardTypeChange.CardTypeFieldCardTypeChange, (string)lstListField.SelectedValue, (string)cmbListFieldCardType.SelectedValue), ref userMessage);
 					refreshCurCardType(ref userMessage);
 				}
 			}
@@ -710,7 +709,7 @@ namespace NotecardFront
 
 				if (field.ShowLabel != chkListFieldShowLabel.IsChecked)
 				{
-					CardManager.saveCardType(listType.ID, new CardTypeChg(CardTypeChange.CardTypeFieldShowLabelChange, field.ID, chkListFieldShowLabel.IsChecked), Path, ref userMessage);
+					CardManager.saveCardType(listType.ID, new CardTypeChg(CardTypeChange.CardTypeFieldShowLabelChange, field.ID, chkListFieldShowLabel.IsChecked), ref userMessage);
 					refreshCurCardType(ref userMessage);
 				}
 			}
@@ -730,7 +729,7 @@ namespace NotecardFront
 				string id1 = CurCardType.Fields[lstCardTypeField.SelectedIndex].ListType.Fields[selected].ID;
 				string id2 = CurCardType.Fields[lstCardTypeField.SelectedIndex].ListType.Fields[selected + 1].ID;
 
-				CardManager.saveCardType(CurCardType.ID, new CardTypeChg(CardTypeChange.CardTypeFieldSwap, id1, id2), Path, ref userMessage);
+				CardManager.saveCardType(CurCardType.ID, new CardTypeChg(CardTypeChange.CardTypeFieldSwap, id1, id2), ref userMessage);
 
 				refreshCurCardType(ref userMessage);
 				refreshListFieldList(ref userMessage);
@@ -752,7 +751,7 @@ namespace NotecardFront
 				string id1 = CurCardType.Fields[lstCardTypeField.SelectedIndex].ListType.Fields[selected - 1].ID;
 				string id2 = CurCardType.Fields[lstCardTypeField.SelectedIndex].ListType.Fields[selected].ID;
 
-				CardManager.saveCardType(CurCardType.ID, new CardTypeChg(CardTypeChange.CardTypeFieldSwap, id1, id2), Path, ref userMessage);
+				CardManager.saveCardType(CurCardType.ID, new CardTypeChg(CardTypeChange.CardTypeFieldSwap, id1, id2), ref userMessage);
 
 				refreshCurCardType(ref userMessage);
 				refreshListFieldList(ref userMessage);

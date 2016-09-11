@@ -34,9 +34,6 @@ namespace NotecardFront
 		/// <summary>The database ID of the card.</summary>
 		public string CardID { get; set; }
 
-		/// <summary>The path of the current database.</summary>
-		public string Path { get; set; }
-
 		/// <summary>The card's card type and its ancestors.</summary>
 		private List<CardType> CardTypes;
 
@@ -187,7 +184,7 @@ namespace NotecardFront
 			CardTypes = cardTypes;
 			ArrangementCardID = (arrangementSettings == null) ? null : arrangementSettings.ID;
 
-			CardData = CardManager.getCard(CardID, Path, CardTypes, ref userMessage);
+			CardData = CardManager.getCard(CardID, CardTypes, ref userMessage);
 
 			stkMain.MouseDown -= stkMain_MouseDown;
 			stkMain.Children.Clear();
@@ -311,7 +308,6 @@ namespace NotecardFront
 
 								TextField text = new TextField()
 								{
-									Path = this.Path,
 									CardID = this.CardID,
 									CardTypeFieldID = f.ID,
 									ArrangementCardID = arrangementCardID,
@@ -339,7 +335,6 @@ namespace NotecardFront
 							{
 								CardField fCard = new CardField()
 								{
-									Path = this.Path,
 									CardID = this.CardID,
 									CardTypeFieldID = f.ID,
 									ArrangementCardID = ((arrangementSettings == null) ? null : arrangementSettings.ID),
@@ -347,7 +342,7 @@ namespace NotecardFront
 									Value = (string)CardData.Fields[fieldIndex],
 									ShowLabel = f.ShowLabel,
 									LabelText = f.Name,
-									FilterCardTypes = (string.IsNullOrEmpty(f.RefCardTypeID) ? null : CardManager.getCardTypeDescendents(f.RefCardTypeID, Path, ref userMessage))
+									FilterCardTypes = (string.IsNullOrEmpty(f.RefCardTypeID) ? null : CardManager.getCardTypeDescendents(f.RefCardTypeID, ref userMessage))
 								};
 
 								fCard.ValueChanged += CardField_ValueChanged;
@@ -371,7 +366,6 @@ namespace NotecardFront
 
 								ListField list = new ListField()
 								{
-									Path = this.Path,
 									CardID = this.CardID,
 									CardTypeFieldID = f.ID,
 									ArrangementCardID = arrangementCardID,
@@ -397,7 +391,6 @@ namespace NotecardFront
 							{
 								ImageField image = new ImageField()
 								{
-									Path = this.Path,
 									CardID = this.CardID,
 									CardTypeFieldID = f.ID,
 									FieldIndex = fieldIndex,
@@ -417,7 +410,6 @@ namespace NotecardFront
 						case DataType.CheckBox:
 							CheckBoxField chk = new CheckBoxField()
 							{
-								Path = this.Path,
 								CardID = this.CardID,
 								CardTypeFieldID = f.ID,
 								ArrangementCardID = ((arrangementSettings == null) ? null : arrangementSettings.ID),
@@ -501,7 +493,7 @@ namespace NotecardFront
 		/// <param name="userMessage">Any user messages.</param>
 		public void updateFieldArrangementIDs(ref string userMessage)
 		{
-			List<string> ids = CardManager.getArrangementListCardIDs(ArrangementCardID, Path, ref userMessage);
+			List<string> ids = CardManager.getArrangementListCardIDs(ArrangementCardID, ref userMessage);
 
 			int itemIndex = 0;
 			foreach (FrameworkElement ui in stkMain.Children)
@@ -549,7 +541,7 @@ namespace NotecardFront
 
 			((Panel)this.Parent).Children.Remove(this);
 
-			CardManager.deleteCard(CardData.ID, Path, ref userMessage);
+			CardManager.deleteCard(CardData.ID, ref userMessage);
 
 			if (!string.IsNullOrEmpty(userMessage))
 				MessageBox.Show(userMessage);

@@ -17,9 +17,8 @@
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="55"/>
-                    <ColumnDefinition Width="255"/>
                     <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="175"/>
                 </Grid.ColumnDefinitions>
                 <Button Name="btnNew" ToolTip="New" Grid.Column="0" Margin="5 5 2.5 5" Width="{Binding ActualWidth, ElementName=btnOpen}" Background="Transparent" BorderThickness="0" BorderBrush="Transparent" Click="btnNew_Click">
                     <Image Source="images/New.png"/>
@@ -34,7 +33,7 @@
                     <Image Source="images/SaveAs.png"/>
                 </Button>
                 <TextBlock Name="lblSearch" HorizontalAlignment="Right" VerticalAlignment="Center" Padding="0" Margin="5 5 2.5 5" Grid.Column="4">Search:</TextBlock>
-                <local:SearchBox x:Name="txtSearch" Grid.Column="5" Margin="2.5 5 5 5" SelectionMade="txtSearch_SelectionMade"/>
+                <local:SearchTextBox x:Name="txtSearch" Grid.Column="5" Margin="5" SearchPerformed="txtSearch_SearchPerformed"/>
             </Grid>
             <Grid DockPanel.Dock="Left" Width="175" Background="AliceBlue">
                 <Grid.RowDefinitions>
@@ -80,6 +79,20 @@
                     <Button Name="btnAddArrangement" Grid.Row="3" Margin="5 5 2.5 5" Click="btnAddArrangement_Click">Add</Button>
                     <Button Name="btnRemoveArrangement" Grid.Row="3" Grid.Column="1" Margin="2.5 5 5 5" Click="btnRemoveArrangement_Click">Remove</Button>
                 </Grid>
+            </Grid>
+            <Grid DockPanel.Dock="Right" Width="175" Background="AliceBlue">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="30"/>
+                </Grid.RowDefinitions>
+                <ListBox Name="lstSearchResults" Margin="5" SelectedValuePath="ID" MouseDoubleClick="lstSearchResults_MouseDoubleClick">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Title}" Foreground="{Binding Color}" FontWeight="Bold"/>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+                <Button Name="btnSearchLoadCard" Margin="5" Grid.Row="1" Content="Load" Click="btnSearchLoadCard_Click"/>
             </Grid>
             <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
                 <Grid Name="pnlMain" ClipToBounds="True"/>

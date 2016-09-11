@@ -21,9 +21,6 @@ namespace NotecardFront
 	/// </summary>
 	public partial class CheckBoxField : UserControl
 	{
-		/// <summary>The path of the current database.</summary>
-		public string Path { get; set; }
-
 		/// <summary>The database ID of the owning card.</summary>
 		public string CardID { get; set; }
 
@@ -101,7 +98,7 @@ namespace NotecardFront
 			if (this.Value != chkValue.IsChecked)
 			{
 				this.Value = chkValue.IsChecked.Value;
-				CardManager.saveCardCheckBoxField(this.Value, CardID, CardTypeFieldID, Path, ref userMessage);
+				CardManager.saveCardCheckBoxField(this.Value, CardID, CardTypeFieldID, ref userMessage);
 				ValueChanged?.Invoke(this, EventArgs.Empty);
 			}
 

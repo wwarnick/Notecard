@@ -17,14 +17,11 @@ using System.Windows.Shapes;
 namespace NotecardFront
 {
 	/// <summary>
-	/// Interaction logic for SearchBox.xaml
+	/// Interaction logic for SearchTextBox.xaml
 	/// </summary>
-	public partial class SearchBox : UserControl
+	public partial class SearchTextBox : UserControl
 	{
 		#region Members
-
-		/// <summary>The path of the current database.</summary>
-		public string Path { get; set; }
 
 		/// <summary>A comma-delimited list of card types to search. null to search all types.</summary>
 		public string CardTypes { get; set; }
@@ -83,19 +80,18 @@ namespace NotecardFront
 		/// <summary>The text block to display over the search box.</summary>
 		public TextBlock lblOverlay { get; private set; }
 
-		/// <summary>Fired when the user selects a card.</summary>
-		public event SearchBoxEventHandler SelectionMade;
+		/// <summary>Fired when the user performs a search.</summary>
+		public event SearchTextBoxEventHandler SearchPerformed;
 
 		#endregion Members
 
 		#region Constructors
 
-		/// <summary>Initializes a new instance of the SearchBox class.</summary>
-		public SearchBox()
+		/// <summary>Initializes a new instance of the SearchTextBox class.</summary>
+		public SearchTextBox()
 		{
 			InitializeComponent();
 
-			Path = null;
 			CardTypes = null;
 		}
 
@@ -117,34 +113,15 @@ namespace NotecardFront
 			SearchResult[] results = null;
 
 			if (!string.IsNullOrEmpty(txtSearch.Text))
-				results = CardManager.search(txtSearch.Text, CardTypes, string.IsNullOrEmpty(CardTypes), Path, ref userMessage);
+				results = CardManager.search(txtSearch.Text, CardTypes, string.IsNullOrEmpty(CardTypes), ref userMessage);
 
-			if (results == null || results.Length == 0)
-			{
-				lstSearchResults.ItemsSource = new Item<string>[0];
-				popSearchResults.IsOpen = false;
-			}
-			else
-			{
-				lstSearchResults.ItemsSource = results;
-				popSearchResults.IsOpen = true;
-			}
+			SearchPerformed?.Invoke(this, new SearchTextBoxEventArgs(
+				(results == null || results.Length == 0)
+				? new SearchResult[0]
+				: results));
 
 			if (!string.IsNullOrEmpty(userMessage))
 				MessageBox.Show(userMessage);
-		}
-
-		/// <summary>Fires selection event.</summary>
-		private void lstSearchResults_SelectionChanged(object sender, SelectionChangedEventArgs e)
-		{
-			popSearchResults.IsOpen = false;
-
-			if (e.AddedItems.Count > 0)
-			{
-				string id = ((SearchResult)e.AddedItems[0]).ID;
-				txtSearch.Text = string.Empty;
-				SelectionMade?.Invoke(this, new SearchBoxEventArgs(id));
-			}
 		}
 
 		#endregion Events

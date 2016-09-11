@@ -98,16 +98,20 @@
     <Compile Include="CheckBoxField.xaml.cs">
       <DependentUpon>CheckBoxField.xaml</DependentUpon>
     </Compile>
+    <Compile Include="SearchTextBoxEventArgs.cs" />
+    <Compile Include="SearchTextBox.xaml.cs">
+      <DependentUpon>SearchTextBox.xaml</DependentUpon>
+    </Compile>
     <Compile Include="TextField.xaml.cs">
       <DependentUpon>TextField.xaml</DependentUpon>
     </Compile>
     <Compile Include="ImageField.xaml.cs">
       <DependentUpon>ImageField.xaml</DependentUpon>
     </Compile>
-    <Compile Include="SearchBox.xaml.cs">
-      <DependentUpon>SearchBox.xaml</DependentUpon>
+    <Compile Include="SearchSelect.xaml.cs">
+      <DependentUpon>SearchSelect.xaml</DependentUpon>
     </Compile>
-    <Compile Include="SearchBoxEventArgs.cs" />
+    <Compile Include="SearchSelectEventArgs.cs" />
     <Compile Include="Tools.cs" />
     <Page Include="CardControl.xaml">
       <SubType>Designer</SubType>
@@ -130,6 +134,10 @@
       <SubType>Designer</SubType>
     </Page>
     <Page Include="CheckBoxField.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="SearchTextBox.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>
@@ -160,7 +168,7 @@
       <DependentUpon>MainWindow.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
-    <Page Include="SearchBox.xaml">
+    <Page Include="SearchSelect.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

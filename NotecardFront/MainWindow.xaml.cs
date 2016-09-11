@@ -29,30 +29,6 @@ namespace NotecardFront
 		/// <summary>The different ways to open a card.</summary>
 		private enum CardOpenType { New, Existing, Refresh }
 
-		/// <summary>The path to the current database.</summary>
-		private string path;
-
-		/// <summary>The path to the current database.</summary>
-		private string Path
-		{
-			get { return path; }
-			set
-			{
-				path = value;
-				lclCardTypeSettings.Path = value;
-				txtSearch.Path = value;
-			}
-		}
-
-		/// <summary>The card types, organized by database ID.</summary>
-		private Dictionary<string, CardType> CardTypes;
-
-		/// <summary>Each card type's ancestry.</summary>
-		private Dictionary<string, List<CardType>> Ancestries;
-
-		/// <summary>Each card type's ancestry database IDs.</summary>
-		private Dictionary<string, List<string>> AncestryIDs;
-
 		/// <summary>The current version of NoteCard.</summary>
 		private readonly string NoteCardVersion;
 
@@ -95,10 +71,6 @@ namespace NotecardFront
 
 			((System.Collections.Specialized.INotifyCollectionChanged)lstCardTypes.Items).CollectionChanged += ItemsSource_Changed;
 
-			CardTypes = new Dictionary<string, CardType>();
-			Ancestries = new Dictionary<string, List<CardType>>();
-			AncestryIDs = new Dictionary<string, List<string>>();
-
 			NoteCardVersion = CardManager.getNoteCardVersion(ref userMessage);
 
 			// start with an empty file
@@ -116,17 +88,13 @@ namespace NotecardFront
 		/// <param name="userMessage">Any user messages.</param>
 		private void newFile(ref string userMessage)
 		{
-			CardTypes.Clear();
-			Ancestries.Clear();
-			AncestryIDs.Clear();
-
 			pnlMain.Children.Clear();
 
 			CurrentFilePath = null;
 			clearCurrentDir(ref userMessage);
 
-			Path = @"current\newcardfile.sqlite";
-			CardManager.createNewFile(Path, ref userMessage);
+			CardManager.Path = @"current\newcardfile.sqlite";
+			CardManager.createNewFile(ref userMessage);
 
 			refreshOldLastModifiedDate(ref userMessage);
 
@@ -185,7 +153,7 @@ namespace NotecardFront
 		/// <param name="userMessage">Any user messages.</param>
 		private void cleanOrphanedFiles(ref string userMessage)
 		{
-			List<string> imageIDs = CardManager.getImageIDs(this.Path, ref userMessage);
+			List<string> imageIDs = CardManager.getImageIDs(ref userMessage);
 
 			// make sure it exists
 			createCurrentDir(ref userMessage);
@@ -211,7 +179,7 @@ namespace NotecardFront
 		/// <param name="userMessage">Any user messages.</param>
 		private void refreshArrangementList(ref string userMessage)
 		{
-			List<string[]> results = CardManager.getArrangementIDsAndNames(Path, ref userMessage);
+			List<string[]> results = CardManager.getArrangementIDsAndNames(ref userMessage);
 			Item<string>[] items = new Item<string>[results.Count];
 
 			for (int i = 0; i < items.Length; i++)
@@ -226,48 +194,19 @@ namespace NotecardFront
 		/// <param name="userMessage">Any user messages.</param>
 		private void refreshCards(ref string userMessage)
 		{
-			List<string[]> results = CardManager.getCardTypeIDsAndNames(path, ref userMessage);
+			CardManager.refreshCardTypes(ref userMessage);
+			CardManager.fillBlankCardTitles(ref userMessage);
 
-			CardType[] tempCardTypes = new CardType[results.Count];
-
-			// get card types
-			CardTypes.Clear();
-			Item<string, SolidColorBrush>[] items = new Item<string, SolidColorBrush>[results.Count];
+			Item<string, SolidColorBrush>[] items = new Item<string, SolidColorBrush>[CardManager.CardTypes.Length];
 			for (int i = 0; i < items.Length; i++)
 			{
-				CardType ct = CardManager.getCardType(results[i][0], path, ref userMessage);
-				CardTypes.Add(ct.ID, ct);
-
-				tempCardTypes[i] = ct;
-
+				CardType ct = CardManager.CardTypes[i];
 				items[i] = new Item<string, SolidColorBrush>(ct.Name, ct.ID, new SolidColorBrush(Color.FromRgb(ct.ColorRed, ct.ColorGreen, ct.ColorBlue)));
 			}
 
 			lstCardTypes.ItemsSource = items;
 			if (lstCardTypes.Items.Count > 0)
 				lstCardTypes.SelectedIndex = 0;
-
-			// fill Ancestries
-			Ancestries.Clear();
-			AncestryIDs.Clear();
-			foreach (CardType ct in tempCardTypes)
-			{
-				List<CardType> ancestry = new List<CardType>() { ct };
-				List<string> ancestryIDs = new List<string>() { ct.ID };
-
-				CardType temp = ct;
-				while (!string.IsNullOrEmpty(temp.ParentID))
-				{
-					temp = CardTypes[temp.ParentID];
-					ancestry.Add(temp);
-					ancestryIDs.Add(temp.ID);
-				}
-
-				ancestry.Reverse();
-				ancestryIDs.Reverse();
-				Ancestries.Add(ct.ID, ancestry);
-				AncestryIDs.Add(ct.ID, ancestryIDs);
-			}
 
 			refreshArrangement(ref userMessage);
 		}
@@ -280,7 +219,7 @@ namespace NotecardFront
 
 			if (!string.IsNullOrEmpty((string)lstArrangements.SelectedValue))
 			{
-				ArrangementCardStandalone[] cards = CardManager.getArrangement((string)lstArrangements.SelectedValue, AncestryIDs, Path, ref userMessage);
+				ArrangementCardStandalone[] cards = CardManager.getArrangement((string)lstArrangements.SelectedValue, CardManager.AncestryIDs, ref userMessage);
 
 				foreach (ArrangementCardStandalone c in cards)
 				{
@@ -299,12 +238,11 @@ namespace NotecardFront
 		/// <returns>The arrangement card ID</returns>
 		private string openCard(string cardID, ArrangementCardStandalone arrangementSettings, CardOpenType openType, ref string userMessage)
 		{
-			string cardTypeID = CardManager.getCardCardTypeID(cardID, path, ref userMessage);
+			string cardTypeID = CardManager.getCardCardTypeID(cardID, ref userMessage);
 
 			CardControl c = new CardControl()
 			{
 				CardID = cardID,
-				Path = path,
 				HorizontalAlignment = HorizontalAlignment.Left,
 				VerticalAlignment = VerticalAlignment.Top
 			};
@@ -323,11 +261,11 @@ namespace NotecardFront
 			// add to arrangement
 			if (openType == CardOpenType.Existing || openType == CardOpenType.New)
 			{
-				string arrangementCardID = CardManager.arrangementAddCard((string)lstArrangements.SelectedValue, cardID, 0, 0, (int)Math.Round(CardControl.DefaultWidth), (openType != CardOpenType.New), Path, ref userMessage);
-				arrangementSettings = CardManager.getArrangementCard(arrangementCardID, AncestryIDs, this.Path, ref userMessage);
+				string arrangementCardID = CardManager.arrangementAddCard((string)lstArrangements.SelectedValue, cardID, 0, 0, (int)Math.Round(CardControl.DefaultWidth), (openType != CardOpenType.New), ref userMessage);
+				arrangementSettings = CardManager.getArrangementCard(arrangementCardID, CardManager.AncestryIDs, ref userMessage);
 			}
 
-			c.refreshUI(Ancestries[cardTypeID], arrangementSettings, ref userMessage);
+			c.refreshUI(CardManager.Ancestries[cardTypeID], arrangementSettings, ref userMessage);
 			c.PreviewMouseDown += CardControl_PreviewMouseDown;
 			c.Archived += CardControl_Archived;
 			c.MovedOrResized += CardControl_MovedOrResized;
@@ -404,7 +342,7 @@ namespace NotecardFront
 		{
 			return;
 
-			List<string[]> connections = CardManager.getArrangementCardConnections((string)lstArrangements.SelectedValue, Path, ref userMessage);
+			List<string[]> connections = CardManager.getArrangementCardConnections((string)lstArrangements.SelectedValue, ref userMessage);
 
 			// collect card positions
 			Dictionary<string, Point> positions = new Dictionary<string, Point>();
@@ -512,7 +450,7 @@ namespace NotecardFront
 			// save
 			if (!cancel)
 			{
-				CardManager.vacuum(Path, ref userMessage);
+				CardManager.vacuum(ref userMessage);
 				cleanOrphanedFiles(ref userMessage);
 
 				try
@@ -537,7 +475,7 @@ namespace NotecardFront
 		{
 			try
 			{
-				CurrentFileOldLastModified = File.GetLastWriteTimeUtc(Path);
+				CurrentFileOldLastModified = File.GetLastWriteTimeUtc(CardManager.Path);
 			}
 			catch (Exception ex)
 			{
@@ -552,7 +490,7 @@ namespace NotecardFront
 		{
 			try
 			{
-				return File.GetLastWriteTimeUtc(Path) != CurrentFileOldLastModified;
+				return File.GetLastWriteTimeUtc(CardManager.Path) != CurrentFileOldLastModified;
 			}
 			catch (Exception ex)
 			{
@@ -567,9 +505,22 @@ namespace NotecardFront
 		{
 			if (!string.IsNullOrEmpty((string)lstArrangements.SelectedValue) && !string.IsNullOrEmpty((string)lstCardTypes.SelectedValue))
 			{
-				string cardID = CardManager.newCard(Ancestries[(string)lstCardTypes.SelectedValue], path, ref userMessage);
+				string cardID = CardManager.newCard(CardManager.Ancestries[(string)lstCardTypes.SelectedValue], ref userMessage);
 				string arrangementCardID = openCard(cardID, null, CardOpenType.New, ref userMessage);
 			}
+		}
+
+		/// <summary>Shows a save confirmation dialog with Yes, No, and Cancel buttons.</summary>
+		/// <param name="userMessage">Any user messages.</param>
+		/// <returns>The dialog result.</returns>
+		private MessageBoxResult showSaveConfirmation(ref string userMessage)
+		{
+			MessageBoxResult result = MessageBox.Show(this, "Do you want to save your changes" + (string.IsNullOrEmpty(CurrentFilePath) ? string.Empty : (" to " + FileName)) + "?", "NoteCard", MessageBoxButton.YesNoCancel);
+
+			if (result == MessageBoxResult.Yes)
+				save(string.IsNullOrEmpty(currentFilePath), ref userMessage);
+
+			return result;
 		}
 
 		#region Events
@@ -591,7 +542,7 @@ namespace NotecardFront
 			string userMessage = string.Empty;
 
 			CardControl card = (CardControl)sender;
-			CardManager.setCardPosAndSize((string)lstArrangements.SelectedValue, (string)card.Tag, (int)Math.Round(card.Margin.Left), (int)Math.Round(card.Margin.Top), (int)Math.Round(card.ActualWidth), Path, ref userMessage);
+			CardManager.setCardPosAndSize((string)lstArrangements.SelectedValue, (string)card.Tag, (int)Math.Round(card.Margin.Left), (int)Math.Round(card.Margin.Top), (int)Math.Round(card.ActualWidth), ref userMessage);
 
 			if (!string.IsNullOrEmpty(userMessage))
 				MessageBox.Show(userMessage);
@@ -603,7 +554,7 @@ namespace NotecardFront
 			string userMessage = string.Empty;
 			CardControl c = (CardControl)sender;
 
-			CardManager.arrangementRemoveCard((string)lstArrangements.SelectedValue, (string)c.Tag, Path, ref userMessage);
+			CardManager.arrangementRemoveCard((string)lstArrangements.SelectedValue, (string)c.Tag, ref userMessage);
 
 			if (!string.IsNullOrEmpty(userMessage))
 				MessageBox.Show(userMessage);
@@ -674,17 +625,36 @@ namespace NotecardFront
 			bringToFront(c);
 		}
 
-		/// <summary>Load the searched card onto the current arrangement.</summary>
-		private void txtSearch_SelectionMade(UserControl sender, SearchBoxEventArgs e)
+		/// <summary>Load the selected card onto the current arrangement.</summary>
+		private void lstSearchResults_MouseDoubleClick(object sender, MouseButtonEventArgs e)
 		{
 			string userMessage = string.Empty;
-
-			loadExistingCard(e.SelectedValue, ref userMessage);
+			
+			if (!string.IsNullOrEmpty((string)lstSearchResults.SelectedValue))
+				loadExistingCard((string)lstSearchResults.SelectedValue, ref userMessage);
 
 			if (!string.IsNullOrEmpty(userMessage))
 				MessageBox.Show(userMessage);
 		}
-		
+
+		/// <summary>Load the selected card onto the current arrangement.</summary>
+		private void btnSearchLoadCard_Click(object sender, RoutedEventArgs e)
+		{
+			string userMessage = string.Empty;
+
+			if (!string.IsNullOrEmpty((string)lstSearchResults.SelectedValue))
+				loadExistingCard((string)lstSearchResults.SelectedValue, ref userMessage);
+
+			if (!string.IsNullOrEmpty(userMessage))
+				MessageBox.Show(userMessage);
+		}
+
+		/// <summary>Fill the search sidebar with the search results.</summary>
+		private void txtSearch_SearchPerformed(UserControl sender, SearchTextBoxEventArgs e)
+		{
+			lstSearchResults.ItemsSource = e.Results;
+		}
+
 		/// <summary>Save the file to the current path.</summary>
 		private void btnSave_Click(object sender, RoutedEventArgs e)
 		{
@@ -734,15 +704,12 @@ namespace NotecardFront
 					CurrentFilePath = openDialog.FileName;
 
 					clearCurrentDir(ref userMessage);
-					CardTypes.Clear();
-					Ancestries.Clear();
-					AncestryIDs.Clear();
 					pnlMain.Children.Clear();
 
 					try
 					{
 						ZipFile.ExtractToDirectory(CurrentFilePath, "current");
-						File.SetLastWriteTimeUtc(path, File.GetLastWriteTimeUtc(CurrentFilePath));
+						File.SetLastWriteTimeUtc(CardManager.Path, File.GetLastWriteTimeUtc(CurrentFilePath));
 					}
 					catch (Exception ex)
 					{
@@ -750,7 +717,7 @@ namespace NotecardFront
 					}
 					refreshOldLastModifiedDate(ref userMessage);
 
-					CardManager.updateDbVersion(Path, ref userMessage);
+					CardManager.updateDbVersion(ref userMessage);
 					refreshArrangementList(ref userMessage);
 					refreshCards(ref userMessage);
 					if (lstArrangements.Items.Count > 0)
@@ -784,7 +751,7 @@ namespace NotecardFront
 			string userMessage = string.Empty;
 
 			string name;
-			string id = CardManager.addArrangement(null, Path, out name, ref userMessage);
+			string id = CardManager.addArrangement(null, out name, ref userMessage);
 
 			Item<string>[] items = (Item<string>[])lstArrangements.ItemsSource;
 			Item<string>[] newItems = new Item<string>[items.Length + 1];
@@ -803,7 +770,7 @@ namespace NotecardFront
 
 			if (!string.IsNullOrWhiteSpace((string)lstArrangements.SelectedValue))
 			{
-				CardManager.removeArrangement((string)lstArrangements.SelectedValue, Path, ref userMessage);
+				CardManager.removeArrangement((string)lstArrangements.SelectedValue, ref userMessage);
 				refreshArrangementList(ref userMessage);
 			}
 
@@ -818,7 +785,7 @@ namespace NotecardFront
 
 			if (!string.IsNullOrEmpty((string)lstArrangements.SelectedValue) && !string.IsNullOrEmpty(txtArrangementName.Text))
 			{
-				CardManager.arrangementChangeName((string)lstArrangements.SelectedValue, txtArrangementName.Text, Path, ref userMessage);
+				CardManager.arrangementChangeName((string)lstArrangements.SelectedValue, txtArrangementName.Text, ref userMessage);
 				Item<string>[] items = (Item<string>[])lstArrangements.ItemsSource;
 				items[lstArrangements.SelectedIndex].Text = txtArrangementName.Text;
 				lstArrangements.Items.Refresh();
@@ -852,19 +819,6 @@ namespace NotecardFront
 
 			if (!string.IsNullOrEmpty(userMessage))
 				MessageBox.Show(userMessage);
-		}
-
-		/// <summary>Shows a save confirmation dialog with Yes, No, and Cancel buttons.</summary>
-		/// <param name="userMessage">Any user messages.</param>
-		/// <returns>The dialog result.</returns>
-		private MessageBoxResult showSaveConfirmation(ref string userMessage)
-		{
-			MessageBoxResult result = MessageBox.Show(this, "Do you want to save your changes" + (string.IsNullOrEmpty(CurrentFilePath) ? string.Empty : (" to " + FileName)) + "?", "NoteCard", MessageBoxButton.YesNoCancel);
-
-			if (result == MessageBoxResult.Yes)
-				save(string.IsNullOrEmpty(currentFilePath), ref userMessage);
-
-			return result;
 		}
 
 		/// <summary>Sets the visibility of lblNoCardTypes.</summary>

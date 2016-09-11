@@ -23,9 +23,6 @@ namespace NotecardFront
 	{
 		#region Members
 
-		/// <summary>The path of the current database.</summary>
-		public string Path { get; set; }
-
 		/// <summary>The database ID of the owning card.</summary>
 		public string CardID { get; set; }
 
@@ -128,7 +125,7 @@ namespace NotecardFront
 				stkMain.Children.Add(menu);
 
 				CardControl item = newListItem(c.ID, this.ListType, l, ref userMessage);
-				item.ArrangementCardID = (l != null) ? l.ID : CardManager.getArrangementListCardID(ArrangementCardID, item.CardID, Path, ref userMessage);
+				item.ArrangementCardID = (l != null) ? l.ID : CardManager.getArrangementListCardID(ArrangementCardID, item.CardID, ref userMessage);
 				item.Minimized = menu.Minimized;
 				stkMain.Children.Add(item);
 
@@ -233,7 +230,7 @@ namespace NotecardFront
 			}
 
 			// apply change to database
-			CardManager.swapListItems(lastListItem.CardID, nextListItem.CardID, this.Path, ref userMessage);
+			CardManager.swapListItems(lastListItem.CardID, nextListItem.CardID, ref userMessage);
 
 			if (!string.IsNullOrEmpty(userMessage))
 				MessageBox.Show(userMessage);
@@ -251,7 +248,7 @@ namespace NotecardFront
 					CardControl c = (CardControl)(FrameworkElement)stkMain.Children[i + 1];
 					c.Minimized = !c.Minimized;
 
-					CardManager.setListItemMinimized(c.ArrangementCardID, c.Minimized, this.Path, ref userMessage);
+					CardManager.setListItemMinimized(c.ArrangementCardID, c.Minimized, ref userMessage);
 					break;
 				}
 			}
@@ -315,7 +312,7 @@ namespace NotecardFront
 			refreshListItemBackColors();
 
 			// apply change to database
-			CardManager.deleteCard(toDelete.CardID, this.Path, ref userMessage);
+			CardManager.deleteCard(toDelete.CardID, ref userMessage);
 
 			if (!string.IsNullOrEmpty(userMessage))
 				MessageBox.Show(userMessage);
@@ -329,7 +326,6 @@ namespace NotecardFront
 		{
 			CardControl item = new CardControl()
 			{
-				Path = this.Path,
 				CardID = itemID
 			};
 
@@ -368,15 +364,15 @@ namespace NotecardFront
 		{
 			string userMessage = string.Empty;
 
-			string id = CardManager.newListItem(CardID, CardTypeFieldID, this.ListType, Path, ref userMessage);
+			string id = CardManager.newListItem(CardID, CardTypeFieldID, this.ListType, ref userMessage);
 
-			Card newItem = CardManager.getCard(id, Path, new List<CardType>() { this.ListType }, ref userMessage);
+			Card newItem = CardManager.getCard(id, new List<CardType>() { this.ListType }, ref userMessage);
 
 			this.Value.Add(newItem);
 
 			CardControl c = newListItem(newItem.ID, this.ListType, null, ref userMessage);
-			c.ArrangementCardID = CardManager.getArrangementListCardID(ArrangementCardID, id, Path, ref userMessage);
-			CardManager.setListItemMinimized(c.ArrangementCardID, false, this.Path, ref userMessage);
+			c.ArrangementCardID = CardManager.getArrangementListCardID(ArrangementCardID, id, ref userMessage);
+			CardManager.setListItemMinimized(c.ArrangementCardID, false, ref userMessage);
 
 			c.updateFieldArrangementIDs(ref userMessage);
 
@@ -414,7 +410,7 @@ namespace NotecardFront
 			string userMessage = string.Empty;
 
 			this.Minimized = !this.Minimized;
-			CardManager.setFieldListMinimized(ArrangementCardID, CardTypeFieldID, this.Minimized, this.Path, ref userMessage);
+			CardManager.setFieldListMinimized(ArrangementCardID, CardTypeFieldID, this.Minimized, ref userMessage);
 
 			if (!string.IsNullOrEmpty(userMessage))
 				MessageBox.Show(userMessage);

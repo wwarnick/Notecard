@@ -23,9 +23,6 @@ namespace NotecardFront
 	{
 		#region Members
 
-		/// <summary>The path of the current database.</summary>
-		public string Path { get; set; }
-
 		/// <summary>The database ID of the owning card.</summary>
 		public string CardID { get; set; }
 
@@ -147,7 +144,7 @@ namespace NotecardFront
 			if (this.Value != txtValue.Text)
 			{
 				this.Value = txtValue.Text;
-				CardManager.saveCardTextField(this.Value, CardID, CardTypeFieldID, Path, ref userMessage);
+				CardManager.saveCardTextField(this.Value, CardID, CardTypeFieldID, ref userMessage);
 				ValueChanged?.Invoke(this, EventArgs.Empty);
 			}
 
@@ -181,7 +178,7 @@ namespace NotecardFront
 				rctResize.MouseMove -= rctResize_MouseMove;
 				Mouse.Capture(null);
 
-				CardManager.setFieldTextHeightIncrease(ArrangementCardID, CardTypeFieldID, (int)Math.Round(txtValue.ActualHeight - txtValue.MinHeight), Path, ref userMessage);
+				CardManager.setFieldTextHeightIncrease(ArrangementCardID, CardTypeFieldID, (int)Math.Round(txtValue.ActualHeight - txtValue.MinHeight), ref userMessage);
 
 				HeightChanged?.Invoke(this, EventArgs.Empty);
 

@@ -22,9 +22,6 @@ namespace NotecardFront
 	/// </summary>
 	public partial class ImageField : UserControl
 	{
-		/// <summary>The path of the current database.</summary>
-		public string Path { get; set; }
-
 		/// <summary>The database ID of the owning card.</summary>
 		public string CardID { get; set; }
 
@@ -160,7 +157,7 @@ namespace NotecardFront
 			// if no existing image, create new record
 			if (string.IsNullOrEmpty(this.Value))
 			{
-				this.Value = CardManager.addCardImage(CardID, CardTypeFieldID, Path, ref userMessage);
+				this.Value = CardManager.addCardImage(CardID, CardTypeFieldID, ref userMessage);
 				btnBrowse.Visibility = Visibility.Collapsed;
 				imgImage.Visibility = Visibility.Visible;
 				btnDelete.Visibility = grdImage.IsMouseOver ? Visibility.Visible : Visibility.Hidden;
@@ -216,7 +213,7 @@ namespace NotecardFront
 		{
 			string userMessage = string.Empty;
 
-			CardManager.removeCardImage(CardID, CardTypeFieldID, Path, ref userMessage);
+			CardManager.removeCardImage(CardID, CardTypeFieldID, ref userMessage);
 
 			System.IO.FileInfo imgFile = new System.IO.FileInfo(@"current\" + Value);
 			imgFile.Delete();

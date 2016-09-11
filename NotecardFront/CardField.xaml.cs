@@ -23,20 +23,6 @@ namespace NotecardFront
 	{
 		#region Members
 
-		/// <summary>The path of the current database.</summary>
-		private string path;
-
-		/// <summary>The path of the current database.</summary>
-		public string Path
-		{
-			get { return path; }
-			set
-			{
-				path = value;
-				txtSearch.Path = value;
-			}
-		}
-
 		/// <summary>The database ID of the owning card.</summary>
 		public string CardID { get; set; }
 
@@ -137,7 +123,7 @@ namespace NotecardFront
 			}
 			else
 			{
-				btnSelection.Content = CardManager.getCardTitle(this.Value, string.IsNullOrEmpty(FilterCardTypes), Path, ref userMessage);
+				btnSelection.Content = CardManager.getCardTitle(this.Value, string.IsNullOrEmpty(FilterCardTypes), ref userMessage);
 				btnSelection.Visibility = Visibility.Visible;
 				lblRemove.Visibility = Visibility.Visible;
 				txtSearch.Opacity = 0d;
@@ -146,13 +132,13 @@ namespace NotecardFront
 		}
 
 		/// <summary>Displays the selection.</summary>
-		private void txtSearch_SelectionMade(UserControl sender, SearchBoxEventArgs e)
+		private void txtSearch_SelectionMade(UserControl sender, SearchSelectEventArgs e)
 		{
 			string userMessage = string.Empty;
 
 			if (this.Value != e.SelectedValue)
 			{
-				CardManager.saveCardCardField(e.SelectedValue, CardID, CardTypeFieldID, Path, ref userMessage);
+				CardManager.saveCardCardField(e.SelectedValue, CardID, CardTypeFieldID, ref userMessage);
 
 				this.Value = e.SelectedValue;
 				refresh(ref userMessage);
@@ -177,7 +163,7 @@ namespace NotecardFront
 				lblRemove.Visibility = Visibility.Collapsed;
 
 				this.Value = null;
-				CardManager.saveCardCardField(this.Value, CardID, CardTypeFieldID, path, ref userMessage);
+				CardManager.saveCardCardField(this.Value, CardID, CardTypeFieldID, ref userMessage);
 			}
 
 			if (!string.IsNullOrEmpty(userMessage))

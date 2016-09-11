@@ -1,4 +1,4 @@
-﻿<UserControl x:Class="NotecardFront.SearchBox"
+﻿<UserControl x:Class="NotecardFront.SearchSelect"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
@@ -7,7 +7,7 @@
              mc:Ignorable="d" 
              d:DesignHeight="300" d:DesignWidth="300">
     <Grid Name="grdMain">
-        <TextBox Name="txtSearch" TextChanged="txtSearch_TextChanged"/>
+        <local:SearchTextBox x:Name="txtSearch" SearchPerformed="txtSearch_SearchPerformed"/>
         <Popup Name="popSearchResults" IsOpen="False" StaysOpen="False" Placement="Bottom" PlacementTarget="{Binding ElementName=txtSearch}" Width="{Binding ActualWidth, ElementName=txtSearch}">
             <ListBox Name="lstSearchResults" SelectedValuePath="ID" SelectionChanged="lstSearchResults_SelectionChanged">
                 <ListBox.ItemTemplate>

@@ -17,7 +17,7 @@ using System.Windows.Shapes;
 namespace NotecardFront
 {
 	/// <summary>
-	/// Interaction logic for SearchBox.xaml
+	/// Interaction logic for ListItemMenu.xaml
 	/// </summary>
 	public partial class ListItemMenu : UserControl
 	{
@@ -173,7 +173,7 @@ namespace NotecardFront
 
 		#region Constructors
 
-		/// <summary>Initializes a new instance of the SearchBox class.</summary>
+		/// <summary>Initializes a new instance of the ListItemMenu class.</summary>
 		public ListItemMenu()
 		{
 			InitializeComponent();

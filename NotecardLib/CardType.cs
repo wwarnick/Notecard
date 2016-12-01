@@ -18,9 +18,6 @@ namespace NotecardLib
 		/// <summary>The name displayed to the user.</summary>
 		public string Name { get; set; }
 
-		/// <summary>The ID of the inherited card type.</summary>
-		public string ParentID { get; set; }
-
 		/// <summary>The context where where the card type is used.</summary>
 		public CardTypeContext Context { get; set; }
 
@@ -68,15 +65,13 @@ namespace NotecardLib
 		/// <summary>Initializes a new instance of the CardType class for an existing card type.</summary>
 		/// <param name="id">The database ID.</param>
 		/// <param name="name">The name displayed to the user.</param>
-		/// <param name="parentID">The ID of the inherited card type.</param>
 		/// <param name="context">The context where where the card type is used.</param>
 		/// <param name="color">The color of the card type, represented by an integer.</param>
 		/// <param name="numFields">The total number of fields, including inherited.</param>
-		public CardType(string id, string name, string parentID, CardTypeContext context, int color, int numFields)
+		public CardType(string id, string name, CardTypeContext context, int color, int numFields)
 		{
 			this.ID = id;
 			this.Name = name;
-			this.ParentID = parentID;
 			this.Context = context;
 			this.NumFields = numFields;
 			this.Fields = new List<CardTypeField>();

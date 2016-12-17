@@ -95,7 +95,6 @@ namespace NotecardFront
 				if (includeMinimize != value)
 				{
 					includeMinimize = value;
-					//<Button Name="btnMinimizeItem" Content="-" Grid.Column="1" Background="Transparent" BorderBrush="Transparent" BorderThickness="0" Padding="5 0 5 0" VerticalContentAlignment="Center" MaxHeight="15" FontWeight="Bold" Click="btnMinimizeItem_Click"/>
 
 					if (includeMinimize)
 					{

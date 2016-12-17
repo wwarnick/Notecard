@@ -60,7 +60,7 @@ namespace NotecardLib
 		#region Constructors
 
 		/// <summary>Initializes a new instance of the CardType class for a new card type.</summary>
-		public CardType() : this(string.Empty, string.Empty, string.Empty, CardTypeContext.Standalone, 0, 0) { }
+		public CardType() : this(string.Empty, string.Empty, CardTypeContext.Standalone, 0, 0) { }
 
 		/// <summary>Initializes a new instance of the CardType class for an existing card type.</summary>
 		/// <param name="id">The database ID.</param>

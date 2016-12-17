@@ -71,7 +71,7 @@ namespace NotecardFront
 			var shadow = new System.Windows.Media.Effects.DropShadowEffect();
 			shadow.ShadowDepth = 10d;
 			shadow.BlurRadius = 10d;
-			shadow.Color = Color.FromRgb(200, 200, 200);//Colors.Gray;
+			shadow.Color = Color.FromRgb(200, 200, 200);
 			this.Effect = shadow;
 		}
 
@@ -226,25 +226,6 @@ namespace NotecardFront
 				MessageBox.Show(userMessages);
 		}
 
-		private void refreshParentList(string cardTypeID, ref string userMessage)
-		{
-			if (string.IsNullOrEmpty(cardTypeID))
-			{
-				cmbCardTypeParent.ItemsSource = new Item<string>[0];
-			}
-			else
-			{
-				List<string[]> results = CardManager.getAllButDescendents(cardTypeID, ref userMessage);
-				Item<string>[] items = new Item<string>[results.Count + 1];
-				items[0] = new Item<string>("[None]", string.Empty);
-				for (int i = 0; i < results.Count; i++)
-				{
-					items[i + 1] = new Item<string>(results[i][1], results[i][0]);
-				}
-				cmbCardTypeParent.ItemsSource = items;
-			}
-		}
-
 		#region Events
 
 		private void btnClose_Click(object sender, RoutedEventArgs e)
@@ -297,19 +278,16 @@ namespace NotecardFront
 			string selValue = e.AddedItems.Count == 0 ? null : ((Item<string>)e.AddedItems[0]).Value;
 
 			refreshCurCardType(selValue, ref userMessage);
-			refreshParentList(selValue, ref userMessage);
 
 			if (string.IsNullOrEmpty(selValue))
 			{
 				txtCardTypeName.Text = string.Empty;
-				cmbCardTypeParent.SelectedValue = null;
 				cmbCardTypeColor.SelectedValue = null;
 				grdCardType.IsEnabled = false;
 			}
 			else
 			{
 				txtCardTypeName.Text = CurCardType.Name;
-				cmbCardTypeParent.SelectedValue = string.IsNullOrEmpty(CurCardType.ParentID) ? string.Empty : CurCardType.ParentID;
 				cmbCardTypeColor.SelectedValue = CurCardType.Color;
 				grdCardType.IsEnabled = true;
 			}
@@ -333,21 +311,6 @@ namespace NotecardFront
 			}
 
 			showMessages(userMessage);
-		}
-
-		private void cmbCardTypeParent_LostFocus(object sender, RoutedEventArgs e)
-		{
-			string userMessage = string.Empty;
-
-			if (!string.IsNullOrEmpty((string)lstCardType.SelectedValue) && (string)cmbCardTypeParent.SelectedValue != CurCardType.ParentID)
-			{
-				CardManager.saveCardType((string)lstCardType.SelectedValue, new CardTypeChg(CardTypeChange.CardTypeParentChange, (string)cmbCardTypeParent.SelectedValue), ref userMessage);
-
-				refreshCurCardType(ref userMessage);
-			}
-
-			if (!string.IsNullOrEmpty(userMessage))
-				MessageBox.Show(userMessage);
 		}
 
 		private void cmbCardTypeColor_LostFocus(object sender, RoutedEventArgs e)
@@ -387,7 +350,7 @@ namespace NotecardFront
 		{
 			string userMessage = string.Empty;
 
-			if (!string.IsNullOrEmpty((string)lstCardTypeField.SelectedValue) && (!string.IsNullOrEmpty((string)cmbCardTypeParent.SelectedValue) || lstCardTypeField.SelectedIndex > 0))
+			if (!string.IsNullOrEmpty((string)lstCardTypeField.SelectedValue) && lstCardTypeField.SelectedIndex > 0)
 			{
 				CardManager.saveCardType((string)lstCardType.SelectedValue, new CardTypeChg(CardTypeChange.CardTypeFieldRemove, (string)lstCardTypeField.SelectedValue), ref userMessage);
 

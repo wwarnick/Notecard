@@ -170,7 +170,6 @@ namespace NotecardFront
 			FrameworkElement[] reAdd = null;
 			int startIndex = 0;
 
-			
 			for (int i = 0; i < stkMain.Children.Count; i++)
 			{
 				FrameworkElement ui = (FrameworkElement)stkMain.Children[i];
@@ -329,7 +328,7 @@ namespace NotecardFront
 				CardID = itemID
 			};
 
-			item.refreshUI(new List<CardType>() { listType }, arrangementCard, ref userMessage);
+			item.refreshUI(listType, arrangementCard, ref userMessage);
 			item.OpenCard += ListItem_OpenCard;
 
 			return item;
@@ -366,7 +365,7 @@ namespace NotecardFront
 
 			string id = CardManager.newListItem(CardID, CardTypeFieldID, this.ListType, ref userMessage);
 
-			Card newItem = CardManager.getCard(id, new List<CardType>() { this.ListType }, ref userMessage);
+			Card newItem = CardManager.getCard(id, this.ListType, ref userMessage);
 
 			this.Value.Add(newItem);
 

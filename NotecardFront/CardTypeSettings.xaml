@@ -44,13 +44,10 @@
                 <Grid.RowDefinitions>
                     <RowDefinition Height="auto"/>
                     <RowDefinition Height="auto"/>
-                    <RowDefinition Height="auto"/>
                 </Grid.RowDefinitions>
 
                 <TextBlock Padding="0" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="5 0 0 0">Name:</TextBlock>
                 <TextBox Name="txtCardTypeName" Padding="0" Grid.Column="1" Width="100" Margin="5 0 5 2.5" LostFocus="txtCardTypeName_LostFocus"/>
-                <TextBlock Padding="0" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="5 0 0 0" Grid.Row="1">Parent:</TextBlock>
-                <ComboBox Name="cmbCardTypeParent" Grid.Row="1" Grid.Column="1" Width="100" Margin="5 2.5 5 2.5" SelectedValuePath="Value" DisplayMemberPath="Text" LostFocus="cmbCardTypeParent_LostFocus"/>
                 <TextBlock Padding="0" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="5 0 0 0" Grid.Row="2">Color:</TextBlock>
                 <ComboBox Name="cmbCardTypeColor" Grid.Row="2" Grid.Column="1" Width="100" Margin="5 2.5 5 2.5" DisplayMemberPath="Text" SelectedValuePath="Value" LostFocus="cmbCardTypeColor_LostFocus"/>
             </Grid>

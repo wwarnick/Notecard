@@ -159,7 +159,7 @@ namespace NotecardLib
 			// if out of date, run scripts
 			if (!string.IsNullOrEmpty(sql))
 			{
-				execNonQuery(sql, Path, ref userMessage, (IEnumerable<SQLiteParameter>)null);
+				execNonQueryWithoutBeginCommit(sql, Path, ref userMessage);
 
 				// update version number in file
 				sql = "UPDATE `global_settings` SET `version` = @version;";
@@ -180,6 +180,11 @@ namespace NotecardLib
 				userMessage += "Could not create file at \"" + Path + "\": " + ex.Message + "\n\n";
 				return;
 			}
+
+			//TODO:
+			//	Update this script and the sqlite file with the version update:
+			// * remove parent_id from card_type
+			// * remove idx_ct_parent_id
 
 			string sql = @"
 				CREATE TABLE `global_settings` (
@@ -472,7 +477,7 @@ namespace NotecardLib
 		{
 			CardTypeByID.Clear();
 
-			string sql = "SELECT `id` FROM `card_type`;";
+			string sql = "SELECT `id` FROM `card_type` WHERE `context` = " + (int)CardTypeContext.Standalone + ";";
 			List<string> ids = execReadListField(sql, Path, ref userMessage, (IEnumerable<SQLiteParameter>)null, "id");
 
 			CardTypes = new CardType[ids.Count];
@@ -658,7 +663,7 @@ namespace NotecardLib
 				INSERT INTO `ctf_id` VALUES (LAST_INSERT_ROWID());
 
 				INSERT INTO `field_text` (`card_id`, `card_type_field_id`, `value`)
-				SELECT `c`.`id`, `ctf_id`.`id`, '' FROM `card` `c` JOIN `ctf_id` WHERE `c`.`card_type_id` = " + cardTypeID + @");
+				SELECT `c`.`id`, `ctf_id`.`id`, '' FROM `card` `c` JOIN `ctf_id` WHERE `c`.`card_type_id` = " + cardTypeID + @";
 
 				INSERT INTO `arrangement_field_text` (`arrangement_card_id`, `card_type_field_id`)
 				SELECT `ac`.`id`, `ctf_id`.`id`
@@ -1603,7 +1608,7 @@ namespace NotecardLib
 				SELECT `ft`.`card_id`, " + (includeCardType ? ("`ct`.`name` || ' - ' || ") : "") + @"`ft`.`value` AS `name`, `ct`.`color`
 				FROM `field_text` `ft`
 					JOIN `card_type_field` `ctf` ON `ctf`.`id` = `ft`.`card_type_field_id`
-					JOIN `card_type` `ct` ON `ct`.`id` = `ctf`.`card_type_id` AND `ct`.`parent_id` IS NULL
+					JOIN `card_type` `ct` ON `ct`.`id` = `ctf`.`card_type_id`
 					LEFT JOIN `card_type_field` `ctf2` ON `ctf2`.`card_type_id` = `ctf`.`card_type_id` AND `ctf2`.`sort_order` < `ctf`.`sort_order`
 				WHERE `ctf2`.`id` IS NULL
 					AND `ft`.`card_id` IN (" + string.Join(",", ids) + ");";
@@ -1729,31 +1734,30 @@ namespace NotecardLib
 		/// <param name="arrangementCardID">The database ID of the arrangement card.</param>
 		/// <param name="userMessage">Any user messages.</param>
 		/// <returns>The arrangement card.</returns>
-		public static ArrangementCardStandalone getArrangementCard(string arrangementCardID, Dictionary<string, List<string>> ancestries, ref string userMessage)
+		public static ArrangementCardStandalone getArrangementCard(string arrangementCardID, ref string userMessage)
 		{
 			string sql = @"
-				SELECT `ac`.`card_id`, `acs`.`x`, `acs`.`y`, `acs`.`width`, `ac`.`arrangement_id`, `c`.`card_type_id`
+				SELECT `ac`.`card_id`, `acs`.`x`, `acs`.`y`, `acs`.`width`, `ac`.`arrangement_id`
 				FROM `card` `c`
 					JOIN `arrangement_card` `ac` ON `ac`.`card_id` = `c`.`id`
 					JOIN `arrangement_card_standalone` `acs` ON `acs`.`arrangement_card_id` = `ac`.`id`
 				WHERE `ac`.`id` = @id;";
 
-			string[] result = execReadFields(sql, Path, ref userMessage, createParam("@id", DbType.Int64, arrangementCardID), "card_id", "x", "y", "width", "arrangement_id", "card_type_id");
+			string[] result = execReadFields(sql, Path, ref userMessage, createParam("@id", DbType.Int64, arrangementCardID), "card_id", "x", "y", "width", "arrangement_id");
 
 			string arrangementID = result[4];
-			List<string> ancestry = ancestries[result[5]];
 
 			// build arrangement card
 			ArrangementCardStandalone card = new ArrangementCardStandalone(arrangementCardID, result[0], null, int.Parse(result[1]), int.Parse(result[2]), int.Parse(result[3]));
 
 			// get text fields
-			card.TextFields = getArrangementCardTextFields(card.ID, ancestry, ref userMessage);
+			card.TextFields = getArrangementCardTextFields(card.ID, ref userMessage);
 
 			// get list fields
-			card.ListFields = getArrangementCardListFields(card.ID, ancestry, ref userMessage);
+			card.ListFields = getArrangementCardListFields(card.ID, ref userMessage);
 
 			// get list items
-			card.ListItems = getArrangementCardListItems(arrangementID, card.CardID, ancestry, ref userMessage);
+			card.ListItems = getArrangementCardListItems(arrangementID, card.CardID, ref userMessage);
 
 			return card;
 		}
@@ -1762,7 +1766,7 @@ namespace NotecardLib
 		/// <param name="arrangementID">The database ID of the arrangement.</param>
 		/// <param name="userMessage">Any user messages.</param>
 		/// <returns>The cards in the arrangement.</returns>
-		public static ArrangementCardStandalone[] getArrangement(string arrangementID, Dictionary<string, List<string>> ancestries, ref string userMessage)
+		public static ArrangementCardStandalone[] getArrangement(string arrangementID, ref string userMessage)
 		{
 			string sql = @"
 				SELECT `ac`.`id`, `ac`.`card_id`, `acs`.`x`, `acs`.`y`, `acs`.`width`
@@ -1789,16 +1793,14 @@ namespace NotecardLib
 				sql = "SELECT `card_type_id` FROM `card` WHERE `id` = @id;";
 				string cardTypeID = execReadField(sql, Path, ref userMessage, createParam("@id", DbType.Int64, card.CardID), "card_type_id");
 
-				List<string> ancestry = ancestries[cardTypeID];
-
 				// get text fields
-				card.TextFields = getArrangementCardTextFields(card.ID, ancestry, ref userMessage);
+				card.TextFields = getArrangementCardTextFields(card.ID, ref userMessage);
 
 				// get list fields
-				card.ListFields = getArrangementCardListFields(card.ID, ancestry, ref userMessage);
+				card.ListFields = getArrangementCardListFields(card.ID, ref userMessage);
 
 				// get list items
-				card.ListItems = getArrangementCardListItems(arrangementID, card.CardID, ancestry, ref userMessage);
+				card.ListItems = getArrangementCardListItems(arrangementID, card.CardID, ref userMessage);
 
 				// finish card
 				cards[i] = card;
@@ -1810,33 +1812,20 @@ namespace NotecardLib
 		/// <summary>Retrieves the arrangement card list item settings.</summary>
 		/// <param name="arrangementID">The database ID of the owning arrangement.</param>
 		/// <param name="cardID">The database ID of the owning card.</param>
-		/// <param name="ancestry">A list of database IDs of the card type's ancestry.</param>
 		/// <param name="userMessage">Any user messages.</param>
 		/// <returns>The arrangement card list item settings.</returns>
-		private static ArrangementCardList[] getArrangementCardListItems(string arrangementID, string cardID, List<string> ancestry, ref string userMessage)
+		private static ArrangementCardList[] getArrangementCardListItems(string arrangementID, string cardID, ref string userMessage)
 		{
-			StringBuilder bSql = new StringBuilder();
-			for (int j = 0; j < ancestry.Count; j++)
-			{
-				if (j > 0)
-				{
-					bSql.Append(@"
-						UNION ALL");
-				}
-
-				bSql.Append(@"
-						SELECT `ac`.`id`, `fl`.`card_id`, `acl`.`minimized`, `c`.`card_type_id`, " + j + @" AS `type_order`, `ctf`.`sort_order` AS `field_order`, `fl`.`sort_order` AS `item_order`
-						FROM `field_list` `fl`
-							JOIN `card_type_field` `ctf` ON `ctf`.`id` = `fl`.`card_type_field_id`
-							JOIN `card` `c` ON `c`.`id` = `fl`.`value`
-							JOIN `arrangement_card` `ac` ON `ac`.`card_id` = `c`.`id`
-							JOIN `arrangement_card_list` `acl` ON `acl`.`arrangement_card_id` = `ac`.`id`
-						WHERE `fl`.`card_id` = @card_id
-							AND `ac`.`arrangement_id` = @arrangement_id
-							AND `ctf`.`card_type_id` = " + ancestry[j]);
-			}
-			bSql.Append(@"
-					ORDER BY `type_order`, `field_order`, `item_order`;");
+			string sql = @"
+				SELECT `ac`.`id`, `fl`.`card_id`, `acl`.`minimized`, `ctf`.`sort_order` AS `field_order`, `fl`.`sort_order` AS `item_order`
+				FROM `field_list` `fl`
+					JOIN `card_type_field` `ctf` ON `ctf`.`id` = `fl`.`card_type_field_id`
+					JOIN `card` `c` ON `c`.`id` = `fl`.`value`
+					JOIN `arrangement_card` `ac` ON `ac`.`card_id` = `c`.`id`
+					JOIN `arrangement_card_list` `acl` ON `acl`.`arrangement_card_id` = `ac`.`id`
+				WHERE `fl`.`card_id` = @card_id
+					AND `ac`.`arrangement_id` = @arrangement_id
+				ORDER BY `field_order`, `item_order`;";
 
 			SQLiteParameter[] listParams = new SQLiteParameter[]
 			{
@@ -1844,7 +1833,7 @@ namespace NotecardLib
 				createParam("@arrangement_id", DbType.Int64, arrangementID)
 			};
 
-			List<string[]> listItems = execReadListFields(bSql.ToString(), Path, ref userMessage, listParams, "id", "card_id", "minimized", "card_type_id");
+			List<string[]> listItems = execReadListFields(sql, Path, ref userMessage, listParams, "id", "card_id", "minimized");
 
 			ArrangementCardList[] results = null;
 			if (listItems.Count > 0)
@@ -1854,7 +1843,7 @@ namespace NotecardLib
 				for (int listIndex = 0; listIndex < listItems.Count; listIndex++)
 				{
 					string[] f = listItems[listIndex];
-					results[listIndex] = new ArrangementCardList(f[0], f[1], getArrangementCardTextFields(f[0], new List<string>() { f[3] }, ref userMessage), f[2] != "0");
+					results[listIndex] = new ArrangementCardList(f[0], f[1], getArrangementCardTextFields(f[0], ref userMessage), f[2] != "0");
 				}
 			}
 
@@ -1863,31 +1852,18 @@ namespace NotecardLib
 
 		/// <summary>Retrieves the arrangement card list field settings.</summary>
 		/// <param name="arrangementCardID">The database ID of the owning arrangement card.</param>
-		/// <param name="ancestry">A list of database IDs of the card type's ancestry.</param>
 		/// <param name="userMessage">Any user messages.</param>
 		/// <returns>The arrangement card list field settings.</returns>
-		private static ArrangementFieldList[] getArrangementCardListFields(string arrangementCardID, List<string> ancestry, ref string userMessage)
+		private static ArrangementFieldList[] getArrangementCardListFields(string arrangementCardID, ref string userMessage)
 		{
-			StringBuilder bSql = new StringBuilder();
-			for (int i = 0; i < ancestry.Count; i++)
-			{
-				if (i > 0)
-				{
-					bSql.Append(@"
-						UNION ALL");
-				}
+			string sql = @"
+				SELECT `ctf`.`id`, `afl`.`minimized`, `ctf`.`sort_order`
+				FROM `arrangement_field_list` `afl`
+					JOIN `card_type_field` `ctf` ON `ctf`.`id` = `afl`.`card_type_field_id`
+				WHERE `afl`.`arrangement_card_id` = @arrangement_card_id
+				ORDER BY `sort_order`;";
 
-				bSql.Append(@"
-						SELECT `ctf`.`id`, `afl`.`minimized`, " + i + @" AS `type_order`, `ctf`.`sort_order`
-						FROM `arrangement_field_list` `afl`
-							JOIN `card_type_field` `ctf` ON `ctf`.`id` = `afl`.`card_type_field_id`
-						WHERE `afl`.`arrangement_card_id` = @arrangement_card_id
-							AND `ctf`.`card_type_id` = " + ancestry[i]);
-			}
-			bSql.Append(@"
-						ORDER BY `type_order`, `sort_order`;");
-
-			List<string[]> listFields = execReadListFields(bSql.ToString(), Path, ref userMessage, createParam("@arrangement_card_id", DbType.Int64, arrangementCardID), "id", "minimized");
+			List<string[]> listFields = execReadListFields(sql, Path, ref userMessage, createParam("@arrangement_card_id", DbType.Int64, arrangementCardID), "id", "minimized");
 
 			ArrangementFieldList[] results = new ArrangementFieldList[listFields.Count];
 			for (int j = 0; j < listFields.Count; j++)
@@ -1900,31 +1876,18 @@ namespace NotecardLib
 
 		/// <summary>Retrieves the arrangement card text field settings.</summary>
 		/// <param name="arrangementCardID">The database ID of the owning arrangement card.</param>
-		/// <param name="ancestry">A list of database IDs of the card type's ancestry.</param>
 		/// <param name="userMessage">Any user messages.</param>
 		/// <returns>The text field settings.</returns>
-		private static ArrangementFieldText[] getArrangementCardTextFields(string arrangementCardID, List<string> ancestry, ref string userMessage)
+		private static ArrangementFieldText[] getArrangementCardTextFields(string arrangementCardID, ref string userMessage)
 		{
-			StringBuilder bSql = new StringBuilder();
-			for (int i = 0; i < ancestry.Count; i++)
-			{
-				if (i > 0)
-				{
-					bSql.Append(@"
-					UNION ALL");
-				}
+			string sql = @"
+				SELECT `ctf`.`id`, `aft`.`height_increase`, `ctf`.`sort_order`
+				FROM `arrangement_field_text` `aft`
+					JOIN `card_type_field` `ctf` ON `ctf`.`id` = `aft`.`card_type_field_id`
+				WHERE `aft`.`arrangement_card_id` = @arrangement_card_id
+				ORDER BY `sort_order`;";
 
-				bSql.Append(@"
-					SELECT `ctf`.`id`, `aft`.`height_increase`, " + i + @" AS `type_order`, `ctf`.`sort_order`
-					FROM `arrangement_field_text` `aft`
-						JOIN `card_type_field` `ctf` ON `ctf`.`id` = `aft`.`card_type_field_id`
-					WHERE `aft`.`arrangement_card_id` = @arrangement_card_id
-						AND `ctf`.`card_type_id` = " + ancestry[i]);
-			}
-			bSql.Append(@"
-					ORDER BY `type_order`, `sort_order`;");
-
-			List<string[]> textFields = execReadListFields(bSql.ToString(), Path, ref userMessage, createParam("@arrangement_card_id", DbType.Int64, arrangementCardID), "id", "height_increase");
+			List<string[]> textFields = execReadListFields(sql, Path, ref userMessage, createParam("@arrangement_card_id", DbType.Int64, arrangementCardID), "id", "height_increase");
 
 			ArrangementFieldText[] fields = new ArrangementFieldText[textFields.Count];
 			for (int j = 0; j < textFields.Count; j++)
@@ -2187,6 +2150,27 @@ namespace NotecardLib
 		{
 			if (thread != null && thread.ThreadState != ThreadState.Stopped)
 				thread.Join();
+		}
+
+		/// <summary>Executes a nonquery SQL string without the BEGIN and COMMIT commands around it.</summary>
+		/// <param name="sql">The SQL to execute.</param>
+		/// <param name="path">The path of the database to access.</param>
+		/// <param name="userMessage">Any user messages.</param>
+		public static void execNonQueryWithoutBeginCommit(string sql, string path, ref string userMessage)
+		{
+			try
+			{
+				using (SQLiteConnection con = new SQLiteConnection(genConnectionString(path)))
+				using (SQLiteCommand cmd = new SQLiteCommand(sql, con))
+				{
+					con.Open();
+					cmd.ExecuteNonQuery();
+				}
+			}
+			catch (Exception ex)
+			{
+				userMessage += ex.Message;
+			}
 		}
 
 		/// <summary>Executes a nonquery SQL string.</summary>

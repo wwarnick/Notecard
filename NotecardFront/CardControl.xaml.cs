@@ -34,8 +34,8 @@ namespace NotecardFront
 		/// <summary>The database ID of the card.</summary>
 		public string CardID { get; set; }
 
-		/// <summary>The card's card type and its ancestors.</summary>
-		private List<CardType> CardTypes;
+		/// <summary>The card's card type.</summary>
+		private CardType CardType;
 
 		/// <summary>The card's data.</summary>
 		private Card cardData;
@@ -159,32 +159,25 @@ namespace NotecardFront
 		/// <returns>The index of the card type field. -1 if not found.</returns>
 		private int getFieldIndex(string cardTypeFieldID)
 		{
-			int fieldIndex = 0;
-
-			foreach (CardType ct in CardTypes)
+			for (int i = 0; i < CardType.Fields.Count; i++)
 			{
-				foreach (CardTypeField f in ct.Fields)
-				{
-					if (f.ID == cardTypeFieldID)
-						return fieldIndex;
-
-					fieldIndex++;
-				}
+				if (CardType.Fields[i].ID == cardTypeFieldID)
+					return i;
 			}
 
 			return -1;
 		}
 
 		/// <summary>Clears and recreates the UI elements.</summary>
-		/// <param name="cardTypes">The card's card type and its ancestors.</param>
+		/// <param name="cardType">The card's card type.</param>
 		/// <param name="arrangementSettings">The card's settings for the current arrangement.</param>
 		/// <returns>Any error messages.</returns>
-		public void refreshUI(List<CardType> cardTypes, ArrangementCard arrangementSettings, ref string userMessage)
+		public void refreshUI(CardType cardType, ArrangementCard arrangementSettings, ref string userMessage)
 		{
-			CardTypes = cardTypes;
+			CardType = cardType;
 			ArrangementCardID = (arrangementSettings == null) ? null : arrangementSettings.ID;
 
-			CardData = CardManager.getCard(CardID, CardTypes, ref userMessage);
+			CardData = CardManager.getCard(CardID, CardType, ref userMessage);
 
 			stkMain.MouseDown -= stkMain_MouseDown;
 			stkMain.Children.Clear();
@@ -288,150 +281,148 @@ namespace NotecardFront
 			int listItemIndex = 0;
 			int imageFieldIndex = 0;
 			int checkBoxFieldIndex = 0;
-			foreach (CardType ct in CardTypes)
+
+			foreach (CardTypeField f in CardType.Fields)
 			{
-				foreach (CardTypeField f in ct.Fields)
+				switch (f.FieldType)
 				{
-					switch (f.FieldType)
-					{
-						case DataType.Text:
+					case DataType.Text:
+						{
+							// get height increase
+							int heightIncrease = 0;
+							string arrangementCardID = null;
+
+							if (arrangementSettings != null)
 							{
-								// get height increase
-								int heightIncrease = 0;
-								string arrangementCardID = null;
-
-								if (arrangementSettings != null)
-								{
-									heightIncrease = arrangementSettings.TextFields[textFieldIndex].HeightIncrease;
-									arrangementCardID = arrangementSettings.ID;
-								}
-
-								TextField text = new TextField()
-								{
-									CardID = this.CardID,
-									CardTypeFieldID = f.ID,
-									ArrangementCardID = arrangementCardID,
-									FieldIndex = fieldIndex,
-									Value = (string)CardData.Fields[fieldIndex],
-									ShowLabel = f.ShowLabel,
-									LabelText = f.Name,
-									HeightIncrease = heightIncrease
-								};
-
-								text.ValueChanged += TextField_ValueChanged;
-								text.HeightChanged += TextField_HeightChanged;
-
-								// if title...
-								if (fieldIndex == 0 && CardData.CType.Context == CardTypeContext.Standalone)
-									text.setAsTitle(titleBrush);
-
-								text.refresh();
-								stkMain.Children.Add(text);
-
-								textFieldIndex++;
+								heightIncrease = arrangementSettings.TextFields[textFieldIndex].HeightIncrease;
+								arrangementCardID = arrangementSettings.ID;
 							}
-							break;
-						case DataType.Card:
+
+							TextField text = new TextField()
 							{
-								CardField fCard = new CardField()
-								{
-									CardID = this.CardID,
-									CardTypeFieldID = f.ID,
-									ArrangementCardID = ((arrangementSettings == null) ? null : arrangementSettings.ID),
-									FieldIndex = fieldIndex,
-									Value = (string)CardData.Fields[fieldIndex],
-									ShowLabel = f.ShowLabel,
-									LabelText = f.Name,
-									FilterCardTypes = (string.IsNullOrEmpty(f.RefCardTypeID) ? null : CardManager.getCardTypeDescendents(f.RefCardTypeID, ref userMessage))
-								};
+								CardID = this.CardID,
+								CardTypeFieldID = f.ID,
+								ArrangementCardID = arrangementCardID,
+								FieldIndex = fieldIndex,
+								Value = (string)CardData.Fields[fieldIndex],
+								ShowLabel = f.ShowLabel,
+								LabelText = f.Name,
+								HeightIncrease = heightIncrease
+							};
 
-								fCard.ValueChanged += CardField_ValueChanged;
-								fCard.OpenCard += CardField_OpenCard;
-								fCard.refresh(ref userMessage);
-								stkMain.Children.Add(fCard);
+							text.ValueChanged += TextField_ValueChanged;
+							text.HeightChanged += TextField_HeightChanged;
 
-								cardFieldIndex++;
-							}
-							break;
-						case DataType.List:
-							{
-								bool minimized = false;
-								string arrangementCardID = null;
+							// if title...
+							if (fieldIndex == 0 && CardData.CType.Context == CardTypeContext.Standalone)
+								text.setAsTitle(titleBrush);
 
-								if (arrangementSettings != null)
-								{
-									minimized = ((ArrangementCardStandalone)arrangementSettings).ListFields[listFieldIndex].Minimized;
-									arrangementCardID = arrangementSettings.ID;
-								}
+							text.refresh();
+							stkMain.Children.Add(text);
 
-								ListField list = new ListField()
-								{
-									CardID = this.CardID,
-									CardTypeFieldID = f.ID,
-									ArrangementCardID = arrangementCardID,
-									FieldIndex = fieldIndex,
-									Value = (List<Card>)CardData.Fields[fieldIndex],
-									ListType = f.ListType,
-									LabelText = f.Name,
-									ColorRed = CardData.CType.ColorRed,
-									ColorGreen = CardData.CType.ColorGreen,
-									ColorBlue = CardData.CType.ColorBlue
-								};
-
-								list.refresh(arrangementSettings, ref listItemIndex, ref userMessage);
-								list.Minimized = minimized;
-								list.OpenCard += ListField_OpenCard;
-
-								stkMain.Children.Add(list);
-
-								listFieldIndex++;
-							}
-							break;
-						case DataType.Image:
-							{
-								ImageField image = new ImageField()
-								{
-									CardID = this.CardID,
-									CardTypeFieldID = f.ID,
-									FieldIndex = fieldIndex,
-									Value = (string)CardData.Fields[fieldIndex],
-									ShowLabel = f.ShowLabel,
-									LabelText = f.Name
-								};
-
-								image.Deleted += ImageField_Deleted;
-								image.Added += ImageField_Added;
-								image.refresh();
-								stkMain.Children.Add(image);
-
-								imageFieldIndex++;
-							}
-							break;
-						case DataType.CheckBox:
-							CheckBoxField chk = new CheckBoxField()
+							textFieldIndex++;
+						}
+						break;
+					case DataType.Card:
+						{
+							CardField fCard = new CardField()
 							{
 								CardID = this.CardID,
 								CardTypeFieldID = f.ID,
 								ArrangementCardID = ((arrangementSettings == null) ? null : arrangementSettings.ID),
 								FieldIndex = fieldIndex,
-								Value = (bool)CardData.Fields[fieldIndex],
+								Value = (string)CardData.Fields[fieldIndex],
+								ShowLabel = f.ShowLabel,
+								LabelText = f.Name,
+								FilterCardTypes = (string.IsNullOrEmpty(f.RefCardTypeID) ? null : f.RefCardTypeID)
+							};
+
+							fCard.ValueChanged += CardField_ValueChanged;
+							fCard.OpenCard += CardField_OpenCard;
+							fCard.refresh(ref userMessage);
+							stkMain.Children.Add(fCard);
+
+							cardFieldIndex++;
+						}
+						break;
+					case DataType.List:
+						{
+							bool minimized = false;
+							string arrangementCardID = null;
+
+							if (arrangementSettings != null)
+							{
+								minimized = ((ArrangementCardStandalone)arrangementSettings).ListFields[listFieldIndex].Minimized;
+								arrangementCardID = arrangementSettings.ID;
+							}
+
+							ListField list = new ListField()
+							{
+								CardID = this.CardID,
+								CardTypeFieldID = f.ID,
+								ArrangementCardID = arrangementCardID,
+								FieldIndex = fieldIndex,
+								Value = (List<Card>)CardData.Fields[fieldIndex],
+								ListType = f.ListType,
+								LabelText = f.Name,
+								ColorRed = CardData.CType.ColorRed,
+								ColorGreen = CardData.CType.ColorGreen,
+								ColorBlue = CardData.CType.ColorBlue
+							};
+
+							list.refresh(arrangementSettings, ref listItemIndex, ref userMessage);
+							list.Minimized = minimized;
+							list.OpenCard += ListField_OpenCard;
+
+							stkMain.Children.Add(list);
+
+							listFieldIndex++;
+						}
+						break;
+					case DataType.Image:
+						{
+							ImageField image = new ImageField()
+							{
+								CardID = this.CardID,
+								CardTypeFieldID = f.ID,
+								FieldIndex = fieldIndex,
+								Value = (string)CardData.Fields[fieldIndex],
 								ShowLabel = f.ShowLabel,
 								LabelText = f.Name
 							};
 
-							chk.ValueChanged += CheckBoxField_ValueChanged;
-							chk.refresh();
-							stkMain.Children.Add(chk);
+							image.Deleted += ImageField_Deleted;
+							image.Added += ImageField_Added;
+							image.refresh();
+							stkMain.Children.Add(image);
 
-							checkBoxFieldIndex++;
-							break;
-						default:
-							MessageBox.Show("Unknown field type: " + f.FieldType.ToString());
-							break;
-					}
+							imageFieldIndex++;
+						}
+						break;
+					case DataType.CheckBox:
+						CheckBoxField chk = new CheckBoxField()
+						{
+							CardID = this.CardID,
+							CardTypeFieldID = f.ID,
+							ArrangementCardID = ((arrangementSettings == null) ? null : arrangementSettings.ID),
+							FieldIndex = fieldIndex,
+							Value = (bool)CardData.Fields[fieldIndex],
+							ShowLabel = f.ShowLabel,
+							LabelText = f.Name
+						};
 
-					fieldIndex++;
+						chk.ValueChanged += CheckBoxField_ValueChanged;
+						chk.refresh();
+						stkMain.Children.Add(chk);
+
+						checkBoxFieldIndex++;
+						break;
+					default:
+						MessageBox.Show("Unknown field type: " + f.FieldType.ToString());
+						break;
 				}
+
+				fieldIndex++;
 			}
 		}
 

@@ -22,6 +22,8 @@ namespace NotecardFront
 	/// </summary>
 	public partial class ImageField : UserControl
 	{
+		public readonly string[] SupportFormats = new string[] { "bmp", "jpg", "jpeg", "png", "gif", "tiff", "ico" };
+
 		/// <summary>The database ID of the owning card.</summary>
 		public string CardID { get; set; }
 
@@ -111,7 +113,7 @@ namespace NotecardFront
 		private bool isValidImagePath(string imgPath)
 		{
 			string extension = imgPath.Substring(imgPath.LastIndexOf('.') + 1).ToLower();
-			return extension == "bmp" || extension == "jpg" || extension == "jpeg" || extension == "png" || extension == "gif" || extension == "tiff" || extension == "ico";
+			return SupportFormats.Contains(extension);
 		}
 
 		/// <summary>Tells whether a drag is valid or not.</summary>

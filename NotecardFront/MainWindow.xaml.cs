@@ -84,97 +84,6 @@ namespace NotecardFront
 
 		#region Methods
 
-		/// <summary>Starts a new file.</summary>
-		/// <param name="userMessage">Any user messages.</param>
-		private void newFile(ref string userMessage)
-		{
-			pnlMain.Children.Clear();
-
-			CurrentFilePath = null;
-			clearCurrentDir(ref userMessage);
-
-			CardManager.Path = @"current\newcardfile.sqlite";
-			CardManager.createNewFile(ref userMessage);
-
-			refreshOldLastModifiedDate(ref userMessage);
-
-			refreshArrangementList(ref userMessage);
-			refreshCards(ref userMessage);
-			lstArrangements.SelectedIndex = 0;
-		}
-
-		/// <summary>Create the current directory.</summary>
-		/// <param name="userMessage">Any user messages.</param>
-		private void createCurrentDir(ref string userMessage)
-		{
-			try
-			{
-				var sec = new System.Security.AccessControl.DirectorySecurity();//Directory.GetAccessControl(path);
-				var everyone = new System.Security.Principal.SecurityIdentifier(System.Security.Principal.WellKnownSidType.WorldSid, null);
-				sec.AddAccessRule(new System.Security.AccessControl.FileSystemAccessRule(everyone, System.Security.AccessControl.FileSystemRights.Modify | System.Security.AccessControl.FileSystemRights.Synchronize, System.Security.AccessControl.InheritanceFlags.ContainerInherit | System.Security.AccessControl.InheritanceFlags.ObjectInherit, System.Security.AccessControl.PropagationFlags.None, System.Security.AccessControl.AccessControlType.Allow));
-
-				Directory.CreateDirectory("current", sec);
-			}
-			catch (Exception ex)
-			{
-				userMessage += ex.Message;
-			}
-		}
-
-		/// <summary>Clears the current working directory.</summary>
-		/// <param name="userMessage">Any user messages.</param>
-		private void clearCurrentDir(ref string userMessage)
-		{
-			// make sure it exists
-			createCurrentDir(ref userMessage);
-
-			try
-			{
-				// delete all files in it if it already exists
-				DirectoryInfo di = new DirectoryInfo("current");
-
-				foreach (FileInfo file in di.GetFiles())
-				{
-					file.Delete();
-				}
-
-				foreach (DirectoryInfo dir in di.GetDirectories())
-				{
-					dir.Delete(true);
-				}
-			}
-			catch (Exception ex)
-			{
-				userMessage += ex.Message;
-			}
-		}
-
-		/// <summary>Removes orphaned files from the current directory.</summary>
-		/// <param name="userMessage">Any user messages.</param>
-		private void cleanOrphanedFiles(ref string userMessage)
-		{
-			List<string> imageIDs = CardManager.getImageIDs(ref userMessage);
-
-			// make sure it exists
-			createCurrentDir(ref userMessage);
-
-			try
-			{
-				// delete all orphaned files in it if it already exists
-				DirectoryInfo di = new DirectoryInfo("current");
-
-				foreach (FileInfo file in di.GetFiles())
-				{
-					if (!file.Name.EndsWith(".sqlite") && !imageIDs.Contains(file.Name))
-						file.Delete();
-				}
-			}
-			catch (Exception ex)
-			{
-				userMessage += ex.Message;
-			}
-		}
-
 		/// <summary>Fills lstArrangements.</summary>
 		/// <param name="userMessage">Any user messages.</param>
 		private void refreshArrangementList(ref string userMessage)
@@ -219,7 +128,7 @@ namespace NotecardFront
 
 			if (!string.IsNullOrEmpty((string)lstArrangements.SelectedValue))
 			{
-				ArrangementCardStandalone[] cards = CardManager.getArrangement((string)lstArrangements.SelectedValue, CardManager.AncestryIDs, ref userMessage);
+				ArrangementCardStandalone[] cards = CardManager.getArrangement((string)lstArrangements.SelectedValue, ref userMessage);
 
 				foreach (ArrangementCardStandalone c in cards)
 				{
@@ -262,10 +171,10 @@ namespace NotecardFront
 			if (openType == CardOpenType.Existing || openType == CardOpenType.New)
 			{
 				string arrangementCardID = CardManager.arrangementAddCard((string)lstArrangements.SelectedValue, cardID, 0, 0, (int)Math.Round(CardControl.DefaultWidth), (openType != CardOpenType.New), ref userMessage);
-				arrangementSettings = CardManager.getArrangementCard(arrangementCardID, CardManager.AncestryIDs, ref userMessage);
+				arrangementSettings = CardManager.getArrangementCard(arrangementCardID, ref userMessage);
 			}
 
-			c.refreshUI(CardManager.Ancestries[cardTypeID], arrangementSettings, ref userMessage);
+			c.refreshUI(CardManager.CardTypeByID[cardTypeID], arrangementSettings, ref userMessage);
 			c.PreviewMouseDown += CardControl_PreviewMouseDown;
 			c.Archived += CardControl_Archived;
 			c.MovedOrResized += CardControl_MovedOrResized;
@@ -428,6 +337,109 @@ namespace NotecardFront
 			}
 		}
 
+		/// <summary>Add a new card to the arrangement.</summary>
+		private void addCard(ref string userMessage)
+		{
+			if (!string.IsNullOrEmpty((string)lstArrangements.SelectedValue) && !string.IsNullOrEmpty((string)lstCardTypes.SelectedValue))
+			{
+				string cardID = CardManager.newCard(CardManager.CardTypeByID[(string)lstCardTypes.SelectedValue], ref userMessage);
+				string arrangementCardID = openCard(cardID, null, CardOpenType.New, ref userMessage);
+			}
+		}
+
+		#region File
+
+		/// <summary>Starts a new file.</summary>
+		/// <param name="userMessage">Any user messages.</param>
+		private void newFile(ref string userMessage)
+		{
+			pnlMain.Children.Clear();
+
+			CurrentFilePath = null;
+			clearCurrentDir(ref userMessage);
+
+			CardManager.Path = @"current\newcardfile.sqlite";
+			CardManager.createNewFile(ref userMessage);
+
+			refreshOldLastModifiedDate(ref userMessage);
+
+			refreshArrangementList(ref userMessage);
+			refreshCards(ref userMessage);
+			lstArrangements.SelectedIndex = 0;
+		}
+
+		/// <summary>Create the current directory.</summary>
+		/// <param name="userMessage">Any user messages.</param>
+		private void createCurrentDir(ref string userMessage)
+		{
+			try
+			{
+				var sec = new System.Security.AccessControl.DirectorySecurity();//Directory.GetAccessControl(path);
+				var everyone = new System.Security.Principal.SecurityIdentifier(System.Security.Principal.WellKnownSidType.WorldSid, null);
+				sec.AddAccessRule(new System.Security.AccessControl.FileSystemAccessRule(everyone, System.Security.AccessControl.FileSystemRights.Modify | System.Security.AccessControl.FileSystemRights.Synchronize, System.Security.AccessControl.InheritanceFlags.ContainerInherit | System.Security.AccessControl.InheritanceFlags.ObjectInherit, System.Security.AccessControl.PropagationFlags.None, System.Security.AccessControl.AccessControlType.Allow));
+
+				Directory.CreateDirectory("current", sec);
+			}
+			catch (Exception ex)
+			{
+				userMessage += ex.Message;
+			}
+		}
+
+		/// <summary>Clears the current working directory.</summary>
+		/// <param name="userMessage">Any user messages.</param>
+		private void clearCurrentDir(ref string userMessage)
+		{
+			// make sure it exists
+			createCurrentDir(ref userMessage);
+
+			try
+			{
+				// delete all files in it if it already exists
+				DirectoryInfo di = new DirectoryInfo("current");
+
+				foreach (FileInfo file in di.GetFiles())
+				{
+					file.Delete();
+				}
+
+				foreach (DirectoryInfo dir in di.GetDirectories())
+				{
+					dir.Delete(true);
+				}
+			}
+			catch (Exception ex)
+			{
+				userMessage += ex.Message;
+			}
+		}
+
+		/// <summary>Removes orphaned files from the current directory.</summary>
+		/// <param name="userMessage">Any user messages.</param>
+		private void cleanOrphanedFiles(ref string userMessage)
+		{
+			List<string> imageIDs = CardManager.getImageIDs(ref userMessage);
+
+			// make sure it exists
+			createCurrentDir(ref userMessage);
+
+			try
+			{
+				// delete all orphaned files in it if it already exists
+				DirectoryInfo di = new DirectoryInfo("current");
+
+				foreach (FileInfo file in di.GetFiles())
+				{
+					if (!file.Name.EndsWith(".sqlite") && !imageIDs.Contains(file.Name))
+						file.Delete();
+				}
+			}
+			catch (Exception ex)
+			{
+				userMessage += ex.Message;
+			}
+		}
+
 		/// <summary>Saves the current file.</summary>
 		/// <param name="saveAs">If a new path should be selected.</param>
 		/// <param name="userMessage">Any user messages.</param>
@@ -500,16 +512,6 @@ namespace NotecardFront
 			return false;
 		}
 
-		/// <summary>Add a new card to the arrangement.</summary>
-		private void addCard(ref string userMessage)
-		{
-			if (!string.IsNullOrEmpty((string)lstArrangements.SelectedValue) && !string.IsNullOrEmpty((string)lstCardTypes.SelectedValue))
-			{
-				string cardID = CardManager.newCard(CardManager.Ancestries[(string)lstCardTypes.SelectedValue], ref userMessage);
-				string arrangementCardID = openCard(cardID, null, CardOpenType.New, ref userMessage);
-			}
-		}
-
 		/// <summary>Shows a save confirmation dialog with Yes, No, and Cancel buttons.</summary>
 		/// <param name="userMessage">Any user messages.</param>
 		/// <returns>The dialog result.</returns>
@@ -522,6 +524,8 @@ namespace NotecardFront
 
 			return result;
 		}
+
+		#endregion File
 
 		#region Events
 

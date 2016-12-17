@@ -90,6 +90,8 @@ namespace NotecardLib
 
 		#region Methods
 
+		#region File
+
 		/// <summary>Gets the current version of NoteCard.</summary>
 		/// <param name="userMessage">Any user messages.</param>
 		/// <returns>The current version of NoteCard.</returns>
@@ -97,74 +99,6 @@ namespace NotecardLib
 		{
 			string sql = "SELECT `version` FROM `versions` ORDER BY `version` DESC LIMIT 1;";
 			return execReadField(sql, "settings.sqlite", ref userMessage, (IEnumerable<SQLiteParameter>)null, "version");
-		}
-
-		/// <summary>Gets the version of the current file.</summary>
-		/// <param name="userMessage">Any user messages.</param>
-		/// <returns>The version of the current file.</returns>
-		public static string getFileVersion(ref string userMessage)
-		{
-			string sql = "SELECT `version` FROM `global_settings` LIMIT 1;";
-			return execReadField(sql, Path, ref userMessage, (IEnumerable<SQLiteParameter>)null, "version");
-		}
-
-		/// <summary>Gets the update scripts to update the current file.</summary>
-		/// <param name="userMessage">Any user messages.</param>
-		/// <returns>The update scripts to update the current file.</returns>
-		public static string getUpdateScripts(ref string userMessage)
-		{
-			// get current file version
-			string version = getFileVersion(ref userMessage);
-
-			// get update scripts
-			string sql = "SELECT `update_sql` FROM `versions` WHERE `version` > @version;";
-			List<string> scripts = execReadListField(sql, "settings.sqlite", ref userMessage, createParam("@version", DbType.String, version), "update_sql");
-
-			// compile scripts
-			StringBuilder finalScript = new StringBuilder();
-			foreach (string script in scripts)
-			{
-				finalScript.Append(script);
-			}
-
-			return finalScript.ToString();
-		}
-
-		/// <summary>Update the version of the database.</summary>
-		/// <param name="userMessage">Any user messages.</param>
-		public static void updateDbVersion(ref string userMessage)
-		{
-			// check to see if the file has a version number
-			string sql = "SELECT `name` FROM `sqlite_master` WHERE `type` = 'table' AND `name` = 'global_settings';";
-
-			List<string> result = execReadListField(sql, Path, ref userMessage, (IEnumerable<SQLiteParameter>)null, "name");
-
-			// if the file doesn't have a version number yet, add it
-			if (result.Count == 0)
-			{
-				sql = @"
-					CREATE TABLE `global_settings` (
-						`id` INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-						`version` TEXT NOT NULL
-					);
-
-					INSERT INTO `global_settings` (`version`) VALUES ('0.1.0.0');";
-
-				execNonQuery(sql, Path, ref userMessage);
-			}
-
-			// get file update scripts
-			sql = getUpdateScripts(ref userMessage);
-
-			// if out of date, run scripts
-			if (!string.IsNullOrEmpty(sql))
-			{
-				execNonQueryWithoutBeginCommit(sql, Path, ref userMessage);
-
-				// update version number in file
-				sql = "UPDATE `global_settings` SET `version` = @version;";
-				execNonQuery(sql, Path, ref userMessage, createParam("@version", DbType.String, getNoteCardVersion(ref userMessage)));
-			}
 		}
 
 		/// <summary>Initializes a new card database.</summary>
@@ -181,11 +115,6 @@ namespace NotecardLib
 				return;
 			}
 
-			//TODO:
-			//	Update this script and the sqlite file with the version update:
-			// * remove parent_id from card_type
-			// * remove idx_ct_parent_id
-
 			string sql = @"
 				CREATE TABLE `global_settings` (
 					`id` INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
@@ -197,17 +126,10 @@ namespace NotecardLib
 				CREATE TABLE `card_type` (
 					`id` INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
 					`name` TEXT NULL DEFAULT NULL,
-					`parent_id` INTEGER NULL DEFAULT NULL
-						REFERENCES `card_type` (`id`)
-						ON UPDATE CASCADE ON DELETE SET NULL
-						DEFERRABLE INITIALLY DEFERRED,
 					`context` INTEGER NOT NULL,
 					`color` INTEGER NOT NULL DEFAULT 32768,
 					UNIQUE (`name`)
 				);
-
-				CREATE INDEX `idx_ct_parent_id`
-					ON `card_type` (`parent_id`);
 
 				CREATE TABLE `card_type_field` (
 					`id` INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
@@ -442,6 +364,76 @@ namespace NotecardLib
 			execNonQuery(sql, Path, ref userMessage, createParam("@version", DbType.String, getNoteCardVersion(ref userMessage)));
 		}
 
+		/// <summary>Gets the version of the current file.</summary>
+		/// <param name="userMessage">Any user messages.</param>
+		/// <returns>The version of the current file.</returns>
+		public static string getFileVersion(ref string userMessage)
+		{
+			string sql = "SELECT `version` FROM `global_settings` LIMIT 1;";
+			return execReadField(sql, Path, ref userMessage, (IEnumerable<SQLiteParameter>)null, "version");
+		}
+
+		/// <summary>Gets the update scripts to update the current file.</summary>
+		/// <param name="userMessage">Any user messages.</param>
+		/// <returns>The update scripts to update the current file.</returns>
+		public static string getUpdateScripts(ref string userMessage)
+		{
+			// get current file version
+			string version = getFileVersion(ref userMessage);
+
+			// get update scripts
+			string sql = "SELECT `update_sql` FROM `versions` WHERE `version` > @version;";
+			List<string> scripts = execReadListField(sql, "settings.sqlite", ref userMessage, createParam("@version", DbType.String, version), "update_sql");
+
+			// compile scripts
+			StringBuilder finalScript = new StringBuilder();
+			foreach (string script in scripts)
+			{
+				finalScript.Append(script);
+			}
+
+			return finalScript.ToString();
+		}
+
+		/// <summary>Update the version of the database.</summary>
+		/// <param name="userMessage">Any user messages.</param>
+		public static void updateDbVersion(ref string userMessage)
+		{
+			// check to see if the file has a version number
+			string sql = "SELECT `name` FROM `sqlite_master` WHERE `type` = 'table' AND `name` = 'global_settings';";
+
+			List<string> result = execReadListField(sql, Path, ref userMessage, (IEnumerable<SQLiteParameter>)null, "name");
+
+			// if the file doesn't have a version number yet, add it
+			if (result.Count == 0)
+			{
+				sql = @"
+					CREATE TABLE `global_settings` (
+						`id` INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+						`version` TEXT NOT NULL
+					);
+
+					INSERT INTO `global_settings` (`version`) VALUES ('0.1.0.0');";
+
+				execNonQuery(sql, Path, ref userMessage);
+			}
+
+			// get file update scripts
+			sql = getUpdateScripts(ref userMessage);
+
+			// if out of date, run scripts
+			if (!string.IsNullOrEmpty(sql))
+			{
+				execNonQueryWithoutBeginCommit(sql, Path, ref userMessage);
+
+				// update version number in file
+				sql = "UPDATE `global_settings` SET `version` = @version;";
+				execNonQuery(sql, Path, ref userMessage, createParam("@version", DbType.String, getNoteCardVersion(ref userMessage)));
+			}
+		}
+
+		#endregion File
+
 		#region Card Types
 
 		/// <summary>Makes sure all card types have title fields.</summary>
@@ -477,7 +469,7 @@ namespace NotecardLib
 		{
 			CardTypeByID.Clear();
 
-			string sql = "SELECT `id` FROM `card_type` WHERE `context` = " + (int)CardTypeContext.Standalone + ";";
+			string sql = "SELECT `id` FROM `card_type` WHERE `context` = " + (int)CardTypeContext.Standalone + " ORDER BY UPPER(`name`);";
 			List<string> ids = execReadListField(sql, Path, ref userMessage, (IEnumerable<SQLiteParameter>)null, "id");
 
 			CardTypes = new CardType[ids.Count];
@@ -968,7 +960,7 @@ namespace NotecardLib
 		/// <returns>A list of two-dimensional arrays. [0] = ID; [1] = Name.</returns>
 		public static List<string[]> getCardTypeIDsAndNames(ref string userMessage)
 		{
-			string sql = "SELECT `id`, `name` FROM `card_type` WHERE `context` = @context ORDER BY `name` ASC;";
+			string sql = "SELECT `id`, `name` FROM `card_type` WHERE `context` = @context ORDER BY UPPER(`name`) ASC;";
 			return execReadListFields(sql, Path, ref userMessage, createParam("@context", DbType.Int64, (int)CardTypeContext.Standalone), "id", "name");
 		}
 
@@ -1726,7 +1718,7 @@ namespace NotecardLib
 		/// <returns>The results.</returns>
 		public static List<string[]> getArrangementIDsAndNames(ref string userMessage)
 		{
-			string sql = "SELECT `id`, `name` FROM `arrangement`;";
+			string sql = "SELECT `id`, `name` FROM `arrangement` ORDER BY UPPER(`name`);";
 			return execReadListFields(sql, Path, ref userMessage, (IEnumerable<SQLiteParameter>)null, "id", "name");
 		}
 

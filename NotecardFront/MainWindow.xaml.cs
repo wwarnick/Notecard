@@ -2,19 +2,10 @@
 using NotecardLib;
 using System;
 using System.Collections.Generic;
-using System.IO;
-using System.IO.Compression;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
 using System.Windows.Shapes;
 
 namespace NotecardFront
@@ -31,32 +22,6 @@ namespace NotecardFront
 
 		/// <summary>The current version of NoteCard.</summary>
 		private readonly string NoteCardVersion;
-
-		/// <summary>The current file path.</summary>
-		private string currentFilePath;
-
-		/// <summary>The current file path.</summary>
-		private string CurrentFilePath
-		{
-			get { return currentFilePath; }
-			set
-			{
-				currentFilePath = value;
-
-				string userMessage = string.Empty;
-				FileName = string.IsNullOrEmpty(currentFilePath) ? string.Empty : currentFilePath.Substring(currentFilePath.LastIndexOf(@"\") + 1);
-				this.Title = (string.IsNullOrEmpty(currentFilePath) ? string.Empty : (FileName + " - ")) + "NoteCard v" + NoteCardVersion;
-
-				if (!string.IsNullOrEmpty(userMessage))
-					MessageBox.Show(userMessage);
-			}
-		}
-
-		/// <summary>The name of the current file.</summary>
-		private string FileName { get; set; }
-
-		/// <summary>The 'last modified' date of the current file when it was first opened or last saved.</summary>
-		private DateTime CurrentFileOldLastModified { get; set; }
 
 		#endregion Members
 
@@ -349,95 +314,26 @@ namespace NotecardFront
 
 		#region File
 
+		/// <summary>Refreshes the text in the title bar.</summary>
+		private void refreshTitle()
+		{
+			this.Title = (string.IsNullOrEmpty(CardManager.CurrentFilePath)
+					? string.Empty
+					: (CardManager.FileName + " - ")) + "NoteCard v" + NoteCardVersion;
+		}
+
 		/// <summary>Starts a new file.</summary>
 		/// <param name="userMessage">Any user messages.</param>
 		private void newFile(ref string userMessage)
 		{
 			pnlMain.Children.Clear();
 
-			CurrentFilePath = null;
-			clearCurrentDir(ref userMessage);
-
-			CardManager.Path = @"current\newcardfile.sqlite";
 			CardManager.createNewFile(ref userMessage);
 
-			refreshOldLastModifiedDate(ref userMessage);
-
+			refreshTitle();
 			refreshArrangementList(ref userMessage);
 			refreshCards(ref userMessage);
 			lstArrangements.SelectedIndex = 0;
-		}
-
-		/// <summary>Create the current directory.</summary>
-		/// <param name="userMessage">Any user messages.</param>
-		private void createCurrentDir(ref string userMessage)
-		{
-			try
-			{
-				var sec = new System.Security.AccessControl.DirectorySecurity();//Directory.GetAccessControl(path);
-				var everyone = new System.Security.Principal.SecurityIdentifier(System.Security.Principal.WellKnownSidType.WorldSid, null);
-				sec.AddAccessRule(new System.Security.AccessControl.FileSystemAccessRule(everyone, System.Security.AccessControl.FileSystemRights.Modify | System.Security.AccessControl.FileSystemRights.Synchronize, System.Security.AccessControl.InheritanceFlags.ContainerInherit | System.Security.AccessControl.InheritanceFlags.ObjectInherit, System.Security.AccessControl.PropagationFlags.None, System.Security.AccessControl.AccessControlType.Allow));
-
-				Directory.CreateDirectory("current", sec);
-			}
-			catch (Exception ex)
-			{
-				userMessage += ex.Message;
-			}
-		}
-
-		/// <summary>Clears the current working directory.</summary>
-		/// <param name="userMessage">Any user messages.</param>
-		private void clearCurrentDir(ref string userMessage)
-		{
-			// make sure it exists
-			createCurrentDir(ref userMessage);
-
-			try
-			{
-				// delete all files in it if it already exists
-				DirectoryInfo di = new DirectoryInfo("current");
-
-				foreach (FileInfo file in di.GetFiles())
-				{
-					file.Delete();
-				}
-
-				foreach (DirectoryInfo dir in di.GetDirectories())
-				{
-					dir.Delete(true);
-				}
-			}
-			catch (Exception ex)
-			{
-				userMessage += ex.Message;
-			}
-		}
-
-		/// <summary>Removes orphaned files from the current directory.</summary>
-		/// <param name="userMessage">Any user messages.</param>
-		private void cleanOrphanedFiles(ref string userMessage)
-		{
-			List<string> imageIDs = CardManager.getImageIDs(ref userMessage);
-
-			// make sure it exists
-			createCurrentDir(ref userMessage);
-
-			try
-			{
-				// delete all orphaned files in it if it already exists
-				DirectoryInfo di = new DirectoryInfo("current");
-
-				foreach (FileInfo file in di.GetFiles())
-				{
-					if (!file.Name.EndsWith(".sqlite") && !imageIDs.Contains(file.Name))
-						file.Delete();
-				}
-			}
-			catch (Exception ex)
-			{
-				userMessage += ex.Message;
-			}
 		}
 
 		/// <summary>Saves the current file.</summary>
@@ -445,71 +341,22 @@ namespace NotecardFront
 		/// <param name="userMessage">Any user messages.</param>
 		private void save(bool saveAs, ref string userMessage)
 		{
-			bool cancel = false;
-
 			// get new path
-			if (saveAs || CurrentFilePath == null)
+			if (saveAs || string.IsNullOrWhiteSpace(CardManager.CurrentFilePath))
 			{
 				SaveFileDialog saveDialog = new SaveFileDialog();
 				saveDialog.Filter = "NoteCard Files | *.crd";
 
 				if (saveDialog.ShowDialog() == true)
-					CurrentFilePath = saveDialog.FileName;
-				else
-					cancel = true;
-			}
-
-			// save
-			if (!cancel)
-			{
-				CardManager.vacuum(ref userMessage);
-				cleanOrphanedFiles(ref userMessage);
-
-				try
 				{
-					// delete the file path if it already exists
-					if (File.Exists(CurrentFilePath))
-						File.Delete(CurrentFilePath);
-
-					ZipFile.CreateFromDirectory("current", CurrentFilePath);
-					refreshOldLastModifiedDate(ref userMessage);
-				}
-				catch (Exception ex)
-				{
-					userMessage += ex.Message;
+					CardManager.save(saveDialog.FileName, ref userMessage);
+					refreshTitle();
 				}
 			}
-		}
-
-		/// <summary>Refreshes CurrentFileOldLastModified.</summary>
-		/// <param name="userMessage">Any user messages.</param>
-		private void refreshOldLastModifiedDate(ref string userMessage)
-		{
-			try
+			else // just save
 			{
-				CurrentFileOldLastModified = File.GetLastWriteTimeUtc(CardManager.Path);
+				CardManager.save(CardManager.CurrentFilePath, ref userMessage);
 			}
-			catch (Exception ex)
-			{
-				userMessage += ex.Message;
-			}
-		}
-
-		/// <summary>Determines whether or not there are unsaved changes.</summary>
-		/// <param name="userMessage">Any user messages.</param>
-		/// <returns>Whether or not there are unsaved changes.</returns>
-		private bool hasUnsavedChanges(ref string userMessage)
-		{
-			try
-			{
-				return File.GetLastWriteTimeUtc(CardManager.Path) != CurrentFileOldLastModified;
-			}
-			catch (Exception ex)
-			{
-				userMessage += ex.Message;
-			}
-
-			return false;
 		}
 
 		/// <summary>Shows a save confirmation dialog with Yes, No, and Cancel buttons.</summary>
@@ -517,10 +364,10 @@ namespace NotecardFront
 		/// <returns>The dialog result.</returns>
 		private MessageBoxResult showSaveConfirmation(ref string userMessage)
 		{
-			MessageBoxResult result = MessageBox.Show(this, "Do you want to save your changes" + (string.IsNullOrEmpty(CurrentFilePath) ? string.Empty : (" to " + FileName)) + "?", "NoteCard", MessageBoxButton.YesNoCancel);
+			MessageBoxResult result = MessageBox.Show(this, "Do you want to save your changes" + (string.IsNullOrEmpty(CardManager.CurrentFilePath) ? string.Empty : (" to " + CardManager.FileName)) + "?", "NoteCard", MessageBoxButton.YesNoCancel);
 
 			if (result == MessageBoxResult.Yes)
-				save(string.IsNullOrEmpty(currentFilePath), ref userMessage);
+				save(string.IsNullOrEmpty(CardManager.CurrentFilePath), ref userMessage);
 
 			return result;
 		}
@@ -697,7 +544,7 @@ namespace NotecardFront
 		{
 			string userMessage = string.Empty;
 
-			if (!hasUnsavedChanges(ref userMessage) ||
+			if (!CardManager.hasUnsavedChanges(ref userMessage) ||
 				showSaveConfirmation(ref userMessage) != MessageBoxResult.Cancel)
 			{
 				OpenFileDialog openDialog = new OpenFileDialog();
@@ -705,23 +552,11 @@ namespace NotecardFront
 
 				if (openDialog.ShowDialog() == true)
 				{
-					CurrentFilePath = openDialog.FileName;
-
-					clearCurrentDir(ref userMessage);
 					pnlMain.Children.Clear();
 
-					try
-					{
-						ZipFile.ExtractToDirectory(CurrentFilePath, "current");
-						File.SetLastWriteTimeUtc(CardManager.Path, File.GetLastWriteTimeUtc(CurrentFilePath));
-					}
-					catch (Exception ex)
-					{
-						userMessage += ex.Message;
-					}
-					refreshOldLastModifiedDate(ref userMessage);
+					CardManager.open(openDialog.FileName, ref userMessage);
 
-					CardManager.updateDbVersion(ref userMessage);
+					refreshTitle();
 					refreshArrangementList(ref userMessage);
 					refreshCards(ref userMessage);
 					if (lstArrangements.Items.Count > 0)
@@ -804,7 +639,7 @@ namespace NotecardFront
 		{
 			string userMessage = string.Empty;
 
-			if (hasUnsavedChanges(ref userMessage) &&
+			if (CardManager.hasUnsavedChanges(ref userMessage) &&
 				showSaveConfirmation(ref userMessage) == MessageBoxResult.Cancel)
 			{
 				// don't exit the application
@@ -818,7 +653,7 @@ namespace NotecardFront
 					lclCardTypeSettings.Visibility = Visibility.Collapsed;
 
 				// clear the current directory
-				clearCurrentDir(ref userMessage);
+				CardManager.clearCurrentDir(ref userMessage);
 			}
 
 			if (!string.IsNullOrEmpty(userMessage))

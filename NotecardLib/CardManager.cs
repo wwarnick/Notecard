@@ -116,109 +116,6 @@ namespace NotecardLib
 
 		#region File
 
-		/// <summary>Refreshes CurrentFileOldLastModified.</summary>
-		/// <param name="userMessage">Any user messages.</param>
-		public static void refreshOldLastModifiedDate(ref string userMessage)
-		{
-			try
-			{
-				CurrentFileOldLastModified = File.GetLastWriteTimeUtc(DBPath);
-			}
-			catch (Exception ex)
-			{
-				userMessage += ex.Message;
-			}
-		}
-
-		/// <summary>Determines whether or not there are unsaved changes.</summary>
-		/// <param name="userMessage">Any user messages.</param>
-		/// <returns>Whether or not there are unsaved changes.</returns>
-		public static bool hasUnsavedChanges(ref string userMessage)
-		{
-			try
-			{
-				return File.GetLastWriteTimeUtc(DBPath) != CurrentFileOldLastModified;
-			}
-			catch (Exception ex)
-			{
-				userMessage += ex.Message;
-			}
-
-			return false;
-		}
-
-		/// <summary>Create the current directory.</summary>
-		/// <param name="userMessage">Any user messages.</param>
-		public static void createCurrentDir(ref string userMessage)
-		{
-			try
-			{
-				var sec = new System.Security.AccessControl.DirectorySecurity();//Directory.GetAccessControl(path);
-				var everyone = new System.Security.Principal.SecurityIdentifier(System.Security.Principal.WellKnownSidType.WorldSid, null);
-				sec.AddAccessRule(new System.Security.AccessControl.FileSystemAccessRule(everyone, System.Security.AccessControl.FileSystemRights.Modify | System.Security.AccessControl.FileSystemRights.Synchronize, System.Security.AccessControl.InheritanceFlags.ContainerInherit | System.Security.AccessControl.InheritanceFlags.ObjectInherit, System.Security.AccessControl.PropagationFlags.None, System.Security.AccessControl.AccessControlType.Allow));
-
-				Directory.CreateDirectory("current", sec);
-			}
-			catch (Exception ex)
-			{
-				userMessage += ex.Message;
-			}
-		}
-
-		/// <summary>Clears the current working directory.</summary>
-		/// <param name="userMessage">Any user messages.</param>
-		public static void clearCurrentDir(ref string userMessage)
-		{
-			// make sure it exists
-			createCurrentDir(ref userMessage);
-
-			try
-			{
-				// delete all files in it if it already exists
-				DirectoryInfo di = new DirectoryInfo("current");
-
-				foreach (FileInfo file in di.GetFiles())
-				{
-					file.Delete();
-				}
-
-				foreach (DirectoryInfo dir in di.GetDirectories())
-				{
-					dir.Delete(true);
-				}
-			}
-			catch (Exception ex)
-			{
-				userMessage += ex.Message;
-			}
-		}
-
-		/// <summary>Removes orphaned files from the current directory.</summary>
-		/// <param name="userMessage">Any user messages.</param>
-		public static void cleanOrphanedFiles(ref string userMessage)
-		{
-			List<string> imageIDs = CardManager.getImageIDs(ref userMessage);
-
-			// make sure it exists
-			createCurrentDir(ref userMessage);
-
-			try
-			{
-				// delete all orphaned files in it if it already exists
-				DirectoryInfo di = new DirectoryInfo("current");
-
-				foreach (FileInfo file in di.GetFiles())
-				{
-					if (!file.Name.EndsWith(".sqlite") && !imageIDs.Contains(file.Name))
-						file.Delete();
-				}
-			}
-			catch (Exception ex)
-			{
-				userMessage += ex.Message;
-			}
-		}
-
 		/// <summary>Gets the current version of NoteCard.</summary>
 		/// <param name="userMessage">Any user messages.</param>
 		/// <returns>The current version of NoteCard.</returns>
@@ -226,6 +123,28 @@ namespace NotecardLib
 		{
 			string sql = "SELECT `version` FROM `versions` ORDER BY `version` DESC LIMIT 1;";
 			return execReadField(sql, "settings.sqlite", ref userMessage, (IEnumerable<SQLiteParameter>)null, "version");
+		}
+
+		/// <summary>Gets the update scripts to update the current file.</summary>
+		/// <param name="userMessage">Any user messages.</param>
+		/// <returns>The update scripts to update the current file.</returns>
+		public static string getUpdateScripts(ref string userMessage)
+		{
+			// get current file version
+			string version = getFileVersion(ref userMessage);
+
+			// get update scripts
+			string sql = "SELECT `update_sql` FROM `versions` WHERE `version` > @version;";
+			List<string> scripts = execReadListField(sql, "settings.sqlite", ref userMessage, createParam("@version", DbType.String, version), "update_sql");
+
+			// compile scripts
+			StringBuilder finalScript = new StringBuilder();
+			foreach (string script in scripts)
+			{
+				finalScript.Append(script);
+			}
+
+			return finalScript.ToString();
 		}
 
 		/// <summary>Initializes a new card database.</summary>
@@ -496,37 +415,6 @@ namespace NotecardLib
 			refreshOldLastModifiedDate(ref userMessage);
 		}
 
-		/// <summary>Gets the version of the current file.</summary>
-		/// <param name="userMessage">Any user messages.</param>
-		/// <returns>The version of the current file.</returns>
-		public static string getFileVersion(ref string userMessage)
-		{
-			string sql = "SELECT `version` FROM `global_settings` LIMIT 1;";
-			return execReadField(sql, DBPath, ref userMessage, (IEnumerable<SQLiteParameter>)null, "version");
-		}
-
-		/// <summary>Gets the update scripts to update the current file.</summary>
-		/// <param name="userMessage">Any user messages.</param>
-		/// <returns>The update scripts to update the current file.</returns>
-		public static string getUpdateScripts(ref string userMessage)
-		{
-			// get current file version
-			string version = getFileVersion(ref userMessage);
-
-			// get update scripts
-			string sql = "SELECT `update_sql` FROM `versions` WHERE `version` > @version;";
-			List<string> scripts = execReadListField(sql, "settings.sqlite", ref userMessage, createParam("@version", DbType.String, version), "update_sql");
-
-			// compile scripts
-			StringBuilder finalScript = new StringBuilder();
-			foreach (string script in scripts)
-			{
-				finalScript.Append(script);
-			}
-
-			return finalScript.ToString();
-		}
-
 		/// <summary>Update the version of the database.</summary>
 		/// <param name="userMessage">Any user messages.</param>
 		public static void updateDbVersion(ref string userMessage)
@@ -562,6 +450,118 @@ namespace NotecardLib
 				sql = "UPDATE `global_settings` SET `version` = @version;";
 				execNonQuery(sql, DBPath, ref userMessage, createParam("@version", DbType.String, getNoteCardVersion(ref userMessage)));
 			}
+		}
+
+		/// <summary>Refreshes CurrentFileOldLastModified.</summary>
+		/// <param name="userMessage">Any user messages.</param>
+		public static void refreshOldLastModifiedDate(ref string userMessage)
+		{
+			try
+			{
+				CurrentFileOldLastModified = File.GetLastWriteTimeUtc(DBPath);
+			}
+			catch (Exception ex)
+			{
+				userMessage += ex.Message;
+			}
+		}
+
+		/// <summary>Determines whether or not there are unsaved changes.</summary>
+		/// <param name="userMessage">Any user messages.</param>
+		/// <returns>Whether or not there are unsaved changes.</returns>
+		public static bool hasUnsavedChanges(ref string userMessage)
+		{
+			try
+			{
+				return File.GetLastWriteTimeUtc(DBPath) != CurrentFileOldLastModified;
+			}
+			catch (Exception ex)
+			{
+				userMessage += ex.Message;
+			}
+
+			return false;
+		}
+
+		/// <summary>Create the current directory.</summary>
+		/// <param name="userMessage">Any user messages.</param>
+		public static void createCurrentDir(ref string userMessage)
+		{
+			try
+			{
+				var sec = new System.Security.AccessControl.DirectorySecurity();//Directory.GetAccessControl(path);
+				var everyone = new System.Security.Principal.SecurityIdentifier(System.Security.Principal.WellKnownSidType.WorldSid, null);
+				sec.AddAccessRule(new System.Security.AccessControl.FileSystemAccessRule(everyone, System.Security.AccessControl.FileSystemRights.Modify | System.Security.AccessControl.FileSystemRights.Synchronize, System.Security.AccessControl.InheritanceFlags.ContainerInherit | System.Security.AccessControl.InheritanceFlags.ObjectInherit, System.Security.AccessControl.PropagationFlags.None, System.Security.AccessControl.AccessControlType.Allow));
+
+				Directory.CreateDirectory("current", sec);
+			}
+			catch (Exception ex)
+			{
+				userMessage += ex.Message;
+			}
+		}
+
+		/// <summary>Clears the current working directory.</summary>
+		/// <param name="userMessage">Any user messages.</param>
+		public static void clearCurrentDir(ref string userMessage)
+		{
+			// make sure it exists
+			createCurrentDir(ref userMessage);
+
+			try
+			{
+				// delete all files in it if it already exists
+				DirectoryInfo di = new DirectoryInfo("current");
+
+				foreach (FileInfo file in di.GetFiles())
+				{
+					file.Delete();
+				}
+
+				foreach (DirectoryInfo dir in di.GetDirectories())
+				{
+					dir.Delete(true);
+				}
+			}
+			catch (Exception ex)
+			{
+				userMessage += ex.Message;
+			}
+		}
+
+		/// <summary>Removes orphaned files from the current directory.</summary>
+		/// <param name="userMessage">Any user messages.</param>
+		public static void cleanOrphanedFiles(ref string userMessage)
+		{
+			List<string> imageIDs = CardManager.getImageIDs(ref userMessage);
+
+			// make sure it exists
+			createCurrentDir(ref userMessage);
+
+			try
+			{
+				// delete all orphaned files in it if it already exists
+				DirectoryInfo di = new DirectoryInfo("current");
+
+				foreach (FileInfo file in di.GetFiles())
+				{
+					if (!file.Name.EndsWith(".sqlite") && !imageIDs.Contains(file.Name))
+						file.Delete();
+				}
+			}
+			catch (Exception ex)
+			{
+				userMessage += ex.Message;
+			}
+		}
+
+		/// <summary>Gets the version of the current file.</summary>
+		/// <param name="userMessage">Any user messages.</param>
+		/// <returns>The version of the current file.</returns>
+		public static string getFileVersion(ref string userMessage)
+		{
+			string sql = "SELECT `version` FROM `global_settings` LIMIT 1;";
+			return execReadField(sql, DBPath, ref userMessage, (IEnumerable<SQLiteParameter>)null, "version");
 		}
 
 		/// <summary>Saves the file to CurrentFilePath.</summary>
@@ -1858,7 +1858,7 @@ namespace NotecardLib
 
 		/// <summary>Adds a new arrangement.</summary>
 		/// <param name="name">The name of the new arrangmenet.</param>
-		/// <param name="newName">The name if the new arrangement (same as name unless name is null).</param>
+		/// <param name="newName">The name of the new arrangement (same as name unless name is null).</param>
 		/// <param name="userMessage">Any user messages</param>
 		/// <returns>The database ID of the new arrangement.</returns>
 		public static string addArrangement(string name, out string newName, ref string userMessage)

@@ -420,7 +420,7 @@ namespace NotecardLib
 		public static void updateDbVersion(ref string userMessage)
 		{
 			// check to see if the file has a version number
-			string sql = "SELECT `name` FROM `sqlite_master` WHERE `type` = 'table' AND `name` = 'global_settings';";
+			string sql = "SELECT `name` FROM `sqlite_master` WHERE `type` = 'table' AND `name` = 'global_settings' LIMIT 1;";
 
 			List<string> result = execReadListField(sql, DBPath, ref userMessage, (IEnumerable<SQLiteParameter>)null, "name");
 
@@ -626,7 +626,7 @@ namespace NotecardLib
 				WHERE `ctf`.`id` IS NULL
 					AND `ctf2`.`id` IS NULL;";
 
-			List<string> ids = execReadListField(sql, DBPath, ref userMessage, (IEnumerable<SQLiteParameter>)null, "id");
+			List<string> ids = execReadListField(sql, DBPath, ref userMessage, createParam("@text_type", DbType.Int64, (int)DataType.Text), "id");
 
 			if (ids.Count > 0)
 			{
